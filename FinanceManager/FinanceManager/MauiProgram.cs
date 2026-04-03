@@ -41,6 +41,9 @@ namespace FinanceManager
             // FAB event bus
             builder.Services.AddSingleton<FabService>();
 
+            // launcher
+            builder.Services.AddSingleton<ILauncherService, MauiLauncherService>();
+
             // ── Blazor WebView ────────────────────────────────────
             builder.Services.AddMauiBlazorWebView();
 

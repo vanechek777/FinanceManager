@@ -4,7 +4,7 @@
 @inject ApiService Api
 @inject AuthStateService Auth
 @inject NavigationManager Nav
-@inject IJSRuntime JS
+@inject ILauncherService Launcher
 
 <div class="login-page">
     <div class="login-card">
@@ -119,13 +119,12 @@
 
     private async Task OpenRegisterPage()
     {
-        // Open the external registration page
+        // Open the external registration page natively via MAUI Launcher
         var registerUrl = "https://finmanager.ru.tuna.am/register/?from_app=true";
         
         try
         {
-            // window.open("_blank") allows the user to easily switch back to the MAUI app
-            await JS.InvokeVoidAsync("open", registerUrl, "_blank");
+            await Launcher.OpenUrlAsync(registerUrl);
         }
         catch
         {

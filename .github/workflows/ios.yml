@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 env:
-  DOTNET_MULTILEVEL_LOOKUP: 0   # Смотрим ТОЛЬКО в DOTNET_ROOT, игнорируем системные
+  DOTNET_MULTILEVEL_LOOKUP: 0
   DOTNET_NOLOGO: 1
   DOTNET_CLI_TELEMETRY_OPTOUT: 1
 
@@ -20,48 +20,36 @@ jobs:
     - name: ⬇️ Checkout
       uses: actions/checkout@v4
 
-    # Устанавливаем .NET 9 — это также устанавливает DOTNET_ROOT и добавляет в PATH
     - name: 🔧 Install .NET 9 SDK
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '9.0.x'
 
-    # Жёстко удаляем .NET 10 если присутствует (он может быть рядом с .NET 9)
-    - name: 🗑️ Remove .NET 10 SDK (keep only 9.x)
+    - name: 🗑️ Remove .NET 10 SDK
       run: |
-        echo "=== SDKs before cleanup ==="
-        ls ~/.dotnet/sdk/ 2>/dev/null || true
-        ls /usr/local/share/dotnet/sdk/ 2>/dev/null || true
-
-        # Удаляем SDK 10.x из всех возможных мест
         find ~/.dotnet/sdk -maxdepth 1 -mindepth 1 -type d | grep -v '/9\.' | xargs -r rm -rf
         sudo find /usr/local/share/dotnet/sdk -maxdepth 1 -mindepth 1 -type d 2>/dev/null | grep -v '/9\.' | sudo xargs -r rm -rf
+        echo "Active SDK: $(dotnet --version)"
 
-        echo "=== SDKs after cleanup ==="
-        dotnet --list-sdks
-        dotnet --version
-
-    # Устанавливаем ВСЕ MAUI workloads для .NET 9
-    # (нужны android+ios+maccatalyst т.к. csproj таргетирует все три)
     - name: 📦 Install MAUI workloads
-      run: |
-        dotnet workload install maui-ios maui-android maui-maccatalyst --skip-sign-check
+      run: dotnet workload install maui-ios maui-android maui-maccatalyst --skip-sign-check
 
-    # Restore Shared project (его цель net9.0 — без платформенных RID)
-    - name: 🔄 Restore all projects
+    # ─────────────────────────────────────────────────────────────────────────
+    # КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: НЕ передаём -p:RuntimeIdentifier на командной строке!
+    # RuntimeIdentifier каскадируется в FinanceManager.Shared (net9.0) и ломает assets.
+    # RuntimeIdentifiers уже прописаны в .csproj для iOS-таргета.
+    # ─────────────────────────────────────────────────────────────────────────
+
+    - name: 🔄 Restore (iOS framework only)
       run: |
-        dotnet restore FinanceManager/FinanceManager.Shared/FinanceManager.Shared.csproj
         dotnet restore FinanceManager/FinanceManager/FinanceManager.csproj \
           -p:TargetFrameworks=net9.0-ios
 
-    # Build iOS Simulator (без --no-restore: если assets невалидны, build сам всё починит)
     - name: 🏗️ Build iOS Simulator
       run: |
         dotnet build FinanceManager/FinanceManager/FinanceManager.csproj \
-          -p:TargetFrameworks=net9.0-ios \
           --framework net9.0-ios \
           --configuration Debug \
-          -p:RuntimeIdentifier=iossimulator-x64 \
           -p:BuildIpa=false \
           -p:CodesignProvision="" \
           -p:CodesignKey="" \
@@ -72,6 +60,7 @@ jobs:
       if: success()
       with:
         name: FinanceFlow-iOS-Simulator
-        path: FinanceManager/FinanceManager/bin/Debug/net9.0-ios/iossimulator-x64/**/*.app
+        path: |
+          FinanceManager/FinanceManager/bin/Debug/net9.0-ios/**/*.app
         retention-days: 14
         if-no-files-found: warn

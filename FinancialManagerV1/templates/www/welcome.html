@@ -1,0 +1,264 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FinanceFlow — Управляйте деньгами умно</title>
+  <meta name="description"
+    content="Современное приложение для учёта и анализа личных финансов с интерактивными диаграммами, целями и аналитикой." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="{% static 'www/css/landing.css' %}" />
+</head>
+
+<body>
+
+  <!-- Animated background -->
+  <div class="bg-canvas">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+    <div class="grid-overlay"></div>
+  </div>
+
+  <!-- ── NAVBAR ── -->
+  <header class="navbar">
+    <div class="nav-inner">
+      <div class="logo">
+        <div class="logo-icon">₽</div>
+        <span class="logo-text">FinanceFlow</span>
+      </div>
+      <nav class="nav-links">
+        <a href="#features" class="nav-link">Возможности</a>
+        <a href="#stats" class="nav-link">Аналитика</a>
+      </nav>
+      <div class="nav-actions">
+        <a href="{% url 'login' %}" class="btn-ghost">Войти</a>
+        <a href="{% url 'register' %}" class="btn-glow">Начать бесплатно →</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── HERO ── -->
+  <section class="hero">
+    <div class="hero-inner">
+      <div class="hero-badge">
+        <span class="badge-dot"></span>
+        Новое поколение финансового учёта
+      </div>
+      <h1 class="hero-title">
+        Контролируйте деньги.<br />
+        <span class="gradient-text">Достигайте цели.</span>
+      </h1>
+      <p class="hero-subtitle">
+        Умный учёт доходов и расходов, интерактивные диаграммы,<br class="hide-mobile" />
+        финансовые цели — всё в одном месте.
+      </p>
+      <div class="hero-cta">
+        <a href="{% url 'register' %}" class="cta-primary">
+          Начать бесплатно
+          <span class="cta-arrow">→</span>
+        </a>
+        <a href="{% url 'login' %}" class="cta-secondary">Уже есть аккаунт</a>
+      </div>
+
+      <!-- Mini stats row -->
+      <div class="hero-stats">
+        <div class="hero-stat">
+          <span class="hstat-value">📊</span>
+          <span class="hstat-label">Диаграммы в реальном времени</span>
+        </div>
+        <div class="hero-stat-sep"></div>
+        <div class="hero-stat">
+          <span class="hstat-value">🎯</span>
+          <span class="hstat-label">Финансовые цели</span>
+        </div>
+        <div class="hero-stat-sep"></div>
+        <div class="hero-stat">
+          <span class="hstat-value">🔒</span>
+          <span class="hstat-label">Личный аккаунт</span>
+        </div>
+        <div class="hero-stat-sep"></div>
+        <div class="hero-stat">
+          <span class="hstat-value">💡</span>
+          <span class="hstat-label">Умная аналитика</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dashboard preview mockup -->
+    <div class="hero-preview">
+      <div class="preview-card">
+        <div class="preview-topbar">
+          <div class="preview-dot red"></div>
+          <div class="preview-dot yellow"></div>
+          <div class="preview-dot green"></div>
+          <span class="preview-title-bar">FinanceFlow — Дашборд</span>
+        </div>
+        <div class="preview-body">
+          <!-- Mini stat cards -->
+          <div class="preview-stats">
+            <div class="preview-stat blue">
+              <div class="ps-label">Баланс</div>
+              <div class="ps-value">₽124 500</div>
+            </div>
+            <div class="preview-stat green">
+              <div class="ps-label">Доходы</div>
+              <div class="ps-value">₽95 000</div>
+            </div>
+            <div class="preview-stat red">
+              <div class="ps-label">Расходы</div>
+              <div class="ps-value">₽43 200</div>
+            </div>
+          </div>
+          <!-- Mini chart bars -->
+          <div class="preview-chart">
+            <div class="chart-label">Доходы и расходы</div>
+            <div class="chart-bars">
+              <div class="bar-group">
+                <div class="bar income" style="height:40%"></div>
+                <div class="bar expense" style="height:25%"></div>
+              </div>
+              <div class="bar-group">
+                <div class="bar income" style="height:55%"></div>
+                <div class="bar expense" style="height:35%"></div>
+              </div>
+              <div class="bar-group">
+                <div class="bar income" style="height:45%"></div>
+                <div class="bar expense" style="height:30%"></div>
+              </div>
+              <div class="bar-group">
+                <div class="bar income" style="height:70%"></div>
+                <div class="bar expense" style="height:40%"></div>
+              </div>
+              <div class="bar-group">
+                <div class="bar income" style="height:60%"></div>
+                <div class="bar expense" style="height:45%"></div>
+              </div>
+              <div class="bar-group">
+                <div class="bar income" style="height:80%"></div>
+                <div class="bar expense" style="height:50%"></div>
+              </div>
+            </div>
+          </div>
+          <!-- Mini transactions -->
+          <div class="preview-txs">
+            <div class="ptx">
+              <span class="ptx-icon">🛒</span>
+              <span class="ptx-name">Продукты</span>
+              <span class="ptx-amount red">−₽2 800</span>
+            </div>
+            <div class="ptx">
+              <span class="ptx-icon">💼</span>
+              <span class="ptx-name">Зарплата</span>
+              <span class="ptx-amount green">+₽65 000</span>
+            </div>
+            <div class="ptx">
+              <span class="ptx-icon">🍕</span>
+              <span class="ptx-name">Рестораны</span>
+              <span class="ptx-amount red">−₽1 450</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── FEATURES ── -->
+  <section class="features" id="features">
+    <div class="section-inner">
+      <div class="section-label">Возможности</div>
+      <h2 class="section-title">Всё для финансового контроля</h2>
+      <p class="section-sub">Простой интерфейс, мощная аналитика</p>
+
+      <div class="features-grid">
+        <div class="feature-card" style="--delay: 0ms">
+          <div class="fc-icon">📊</div>
+          <h3 class="fc-title">Интерактивные диаграммы</h3>
+          <p class="fc-desc">Столбчатые, круговые и линейные графики — динамика баланса, расходы по категориям, тренды
+            по месяцам.</p>
+        </div>
+        <div class="feature-card" style="--delay: 80ms">
+          <div class="fc-icon">💳</div>
+          <h3 class="fc-title">Учёт транзакций</h3>
+          <p class="fc-desc">Добавляйте доходы и расходы по категориям, фильтруйте по периодам, ищите по описанию.</p>
+        </div>
+        <div class="feature-card" style="--delay: 160ms">
+          <div class="fc-icon">🎯</div>
+          <h3 class="fc-title">Финансовые цели</h3>
+          <p class="fc-desc">Ставьте цели с дедлайнами, отслеживайте прогресс, пополняйте накопления.</p>
+        </div>
+        <div class="feature-card" style="--delay: 240ms">
+          <div class="fc-icon">📅</div>
+          <h3 class="fc-title">Фильтрация по периодам</h3>
+          <p class="fc-desc">Анализируйте данные за неделю, месяц, год или всё время одним кликом.</p>
+        </div>
+        <div class="feature-card" style="--delay: 320ms">
+          <div class="fc-icon">🔒</div>
+          <h3 class="fc-title">Личный аккаунт</h3>
+          <p class="fc-desc">Регистрация и авторизация — ваши данные доступны только вам.</p>
+        </div>
+        <div class="feature-card" style="--delay: 400ms">
+          <div class="fc-icon">📈</div>
+          <h3 class="fc-title">Аналитика расходов</h3>
+          <p class="fc-desc">Топ категорий, динамика баланса, недельная статистика — понимайте куда уходят деньги.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── CTA BANNER ── -->
+  <section class="cta-banner" id="stats">
+    <div class="cta-inner">
+      <div class="cta-glow"></div>
+      <h2 class="cta-title">Начните контролировать финансы прямо сейчас</h2>
+      <p class="cta-sub">Бесплатно. Без ограничений. Просто и красиво.</p>
+      <div class="cta-buttons">
+        <a href="{% url 'register' %}" class="cta-primary large">
+          Создать аккаунт бесплатно →
+        </a>
+        <a href="{% url 'login' %}" class="cta-secondary large">Войти</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── FOOTER ── -->
+  <footer class="footer">
+    <div class="footer-inner">
+      <div class="logo">
+        <div class="logo-icon small">₽</div>
+        <span class="logo-text">FinanceFlow</span>
+      </div>
+      <p class="footer-copy">Управляй финансами умно</p>
+    </div>
+  </footer>
+
+  <script>
+    // Smooth scroll for anchor links
+    document.querySelectorAll('a[href^="#"]').forEach(a => {
+      a.addEventListener('click', e => {
+        e.preventDefault();
+        const target = document.querySelector(a.getAttribute('href'));
+        if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    });
+
+    // Intersection observer for feature cards animation
+    const cards = document.querySelectorAll('.feature-card');
+    const obs = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          setTimeout(() => entry.target.classList.add('visible'), parseInt(entry.target.style.getPropertyValue('--delay')));
+          obs.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.15 });
+    cards.forEach(c => obs.observe(c));
+  </script>
+</body>
+
+</html>

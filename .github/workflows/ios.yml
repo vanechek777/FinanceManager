@@ -1,0 +1,55 @@
+name: 🍎 Build iOS (Simulator)
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:   # Кнопка ручного запуска на GitHub
+
+jobs:
+  build-ios:
+    name: Build for iOS Simulator
+    runs-on: macos-latest
+
+    steps:
+
+    # 1. Скачиваем код
+    - name: ⬇️ Checkout code
+      uses: actions/checkout@v4
+
+    # 2. Устанавливаем .NET 9
+    - name: 🔧 Setup .NET 9
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'
+
+    # 3. Устанавливаем MAUI iOS workload
+    - name: 📦 Install MAUI iOS workload
+      run: dotnet workload install maui-ios --skip-sign-check
+
+    # 4. Восстанавливаем пакеты
+    - name: 🔄 Restore NuGet packages
+      run: |
+        dotnet restore FinanceManager/FinanceManager.Shared/FinanceManager.Shared.csproj
+        dotnet restore FinanceManager/FinanceManager/FinanceManager.csproj
+
+    # 5. Собираем для симулятора (не требует сертификатов!)
+    - name: 🏗️ Build iOS Simulator
+      run: |
+        dotnet build FinanceManager/FinanceManager/FinanceManager.csproj \
+          --framework net9.0-ios \
+          --configuration Debug \
+          -p:RuntimeIdentifier=iossimulator-x64 \
+          -p:BuildIpa=false \
+          -p:_DevicePlatform=iPhoneSimulator \
+          --no-restore
+
+    # 6. Публикуем артефакты (скаченный .app файл)
+    - name: 📤 Upload iOS app artifact
+      uses: actions/upload-artifact@v4
+      if: success()
+      with:
+        name: FinanceFlow-iOS-Simulator
+        path: |
+          FinanceManager/FinanceManager/bin/Debug/net9.0-ios/iossimulator-x64/**/*.app
+        retention-days: 14
+        if-no-files-found: warn

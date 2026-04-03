@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Конфигурация сетевой безопасности для Android 9+ (API 28+).
+    Позволяет доверять системным CA-сертификатам (включая Let's Encrypt,
+    которые используют некоторые туннельные сервисы типа tuna.am).
+    Также разрешает cleartext для localhost (используется BlazorWebView внутренне).
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <!-- Доверять системным CA (включая Let's Encrypt) -->
+            <certificates src="system" />
+            <!-- Доверять пользовательским CA (для debugging через Charles/Fiddler) -->
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+
+    <!-- BlazorWebView использует 0.0.0.1 внутренне — нужен cleartext -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">0.0.0.1</domain>
+        <domain includeSubdomains="true">localhost</domain>
+        <domain includeSubdomains="true">127.0.0.1</domain>
+    </domain-config>
+
+    <!-- API домен — HTTPS, доверяем системным CA -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">finmanager.ru.tuna.am</domain>
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </domain-config>
+</network-security-config>

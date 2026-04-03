@@ -1,0 +1,150 @@
+@using FinanceManager.Shared.Services
+@using FinanceManager.Shared.Pages
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject AuthStateService Auth
+@inject NavigationManager Nav
+@inject FabService Fab
+
+@if (!Auth.IsAuthenticated)
+{
+    <Login />
+}
+else
+{
+    <div class="app-shell">
+        <!-- Top Bar -->
+        <header class="topbar">
+            <div class="topbar-logo">
+                <div class="logo-icon">₽</div>
+                <span class="logo-text">FinanceFlow</span>
+            </div>
+            <div class="topbar-actions">
+                <div class="topbar-user-avatar" title="@Auth.CurrentUser?.Username">
+                    @(Auth.CurrentUser?.Initials ?? "?")
+                </div>
+                <button class="btn-icon" @onclick="Logout" title="Выйти">🚪</button>
+            </div>
+        </header>
+
+        <!-- Page Content -->
+        <main class="page-content">
+            @Body
+        </main>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav">
+            <button class="bnav-item @Active("dashboard")"
+                    @onclick='() => Navigate("/")'>
+                <span class="bnav-icon">🏠</span>
+                <span class="bnav-label">Главная</span>
+            </button>
+            <button class="bnav-item @Active("transactions")"
+                    @onclick='() => Navigate("/transactions")'>
+                <span class="bnav-icon">💳</span>
+                <span class="bnav-label">Расходы</span>
+            </button>
+            <button class="bnav-item @Active("analytics")"
+                    @onclick='() => Navigate("/analytics")'>
+                <span class="bnav-icon">📊</span>
+                <span class="bnav-label">Графики</span>
+            </button>
+            <button class="bnav-item @Active("goals")"
+                    @onclick='() => Navigate("/goals")'>
+                <span class="bnav-icon">🎯</span>
+                <span class="bnav-label">Цели</span>
+            </button>
+        </nav>
+
+        <!-- FAB -->
+        <button class="fab" @onclick="OnFabClickAsync">＋</button>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast @_toastClass @(_toastVisible ? "show" : "")">@_toastMessage</div>
+}
+
+@code {
+    private string _currentPage = "dashboard";
+    private string _toastMessage = "";
+    private string _toastClass = "";
+    private bool _toastVisible = false;
+    private CancellationTokenSource? _toastCts;
+
+    // ── Toast static bridge ───────────────────────────────────
+    // Используем статический Func для вызова из страниц
+    public static Func<string, string, Task>? ToastBridge { get; set; }
+
+    public static Task ShowToast(string message, string type = "info")
+        => ToastBridge?.Invoke(message, type) ?? Task.CompletedTask;
+
+    // ── Lifecycle ──────────────────────────────────────────────
+    protected override void OnInitialized()
+    {
+        Auth.OnAuthStateChanged += OnAuthChanged;
+        Nav.LocationChanged += OnLocationChanged;
+        ToastBridge = HandleToastAsync;
+        UpdateCurrentPage(Nav.Uri);
+    }
+
+    public void Dispose()
+    {
+        Auth.OnAuthStateChanged -= OnAuthChanged;
+        Nav.LocationChanged -= OnLocationChanged;
+        if (ToastBridge == (Func<string, string, Task>)HandleToastAsync)
+            ToastBridge = null;
+        _toastCts?.Cancel();
+        _toastCts?.Dispose();
+    }
+
+    // ── Helpers ────────────────────────────────────────────────
+    private string Active(string page) => _currentPage == page ? "active" : "";
+
+    private void OnAuthChanged() => InvokeAsync(StateHasChanged);
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        UpdateCurrentPage(e.Location);
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void UpdateCurrentPage(string uri)
+    {
+        if      (uri.Contains("/transactions")) _currentPage = "transactions";
+        else if (uri.Contains("/analytics"))    _currentPage = "analytics";
+        else if (uri.Contains("/goals"))        _currentPage = "goals";
+        else                                    _currentPage = "dashboard";
+    }
+
+    private void Navigate(string path) => Nav.NavigateTo(path);
+
+    private async Task OnFabClickAsync() => await Fab.TriggerAsync();
+
+    private void Logout()
+    {
+        Auth.Logout();
+        Nav.NavigateTo("/");
+    }
+
+    // ── Toast handler ──────────────────────────────────────────
+    private async Task HandleToastAsync(string message, string type)
+    {
+        _toastCts?.Cancel();
+        _toastCts?.Dispose();
+        _toastCts = new CancellationTokenSource();
+
+        _toastMessage = message;
+        _toastClass = type;
+        _toastVisible = true;
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            await Task.Delay(3000, _toastCts.Token);
+        }
+        catch (TaskCanceledException) { return; }
+
+        _toastVisible = false;
+        await InvokeAsync(StateHasChanged);
+    }
+}

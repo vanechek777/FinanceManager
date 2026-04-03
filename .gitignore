@@ -1,0 +1,85 @@
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Build outputs
+[Dd]ebug/
+[Rr]elease/
+[Bb]in/
+[Oo]bj/
+x64/
+x86/
+bld/
+[Ll]og/
+[Ll]ogs/
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+!**/packages/repositories.config
+*.lock.json
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# MAUI / Xamarin
+*.jks
+*.keystore
+*.apk
+*.aab
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Python / Django
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.tox/
+.env
+.venv
+env/
+venv/
+ENV/
+db.sqlite3
+*.sqlite3
+*.log
+media/
+staticfiles/
+.pytest_cache/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# JetBrains
+.idea/
+*.iml
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Temporary files
+*.tmp
+*.temp
+~$*

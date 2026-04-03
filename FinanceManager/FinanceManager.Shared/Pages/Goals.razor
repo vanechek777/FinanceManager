@@ -1,0 +1,344 @@
+@page "/goals"
+@using FinanceManager.Shared.Services
+@using FinanceManager.Shared.Models
+@inject ApiService Api
+@inject NavigationManager Nav
+@inject FabService Fab
+@implements IDisposable
+
+<PageTitle>FinanceFlow — Цели</PageTitle>
+
+@if (_loading)
+{
+    <div class="loading-spinner"><div class="spinner"></div></div>
+}
+else if (_goals.Count == 0)
+{
+    <div class="empty-state">
+        <div class="empty-icon">🎯</div>
+        <div class="empty-text">Добавьте первую финансовую цель!</div>
+    </div>
+}
+else
+{
+    <div class="goals-list">
+        @foreach (var goal in _goals)
+        {
+            <div class="goal-card">
+                <div class="goal-card-header">
+                    <div class="goal-icon-wrap">@goal.Icon</div>
+                    <div class="goal-info">
+                        <div class="goal-name">@goal.Name</div>
+                        <div class="goal-deadline">📅 @goal.DeadlineFormatted</div>
+                    </div>
+                </div>
+
+                <div class="goal-amounts">
+                    <span class="goal-current">₽@goal.CurrentAmount.ToString("N0")</span>
+                    <span class="goal-target">из ₽@goal.TargetAmount.ToString("N0")</span>
+                </div>
+
+                <div class="goal-progress-bar">
+                    <div class="goal-progress-fill" style="width: @Math.Min(100, goal.ProgressPct)%;"></div>
+                </div>
+                <div class="goal-pct">@goal.ProgressPct.ToString("N1")% выполнено</div>
+
+                <div class="goal-actions">
+                    <button class="btn-success" @onclick="() => OpenDeposit(goal)">
+                        💰 Пополнить
+                    </button>
+                    <button class="btn-secondary" style="padding:7px 12px;font-size:12px;"
+                            @onclick="() => EditGoal(goal)">✏️</button>
+                    <button class="btn-danger" @onclick="() => DeleteGoal(goal)">🗑️</button>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+<!-- Add/Edit Goal Modal -->
+<div class="modal-overlay @(_modalOpen ? "open" : "")" @onclick="CloseOnOverlay">
+    <div class="modal" @onclick:stopPropagation>
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <h3 class="modal-title">@(_editingId.HasValue ? "Редактировать цель" : "Новая цель")</h3>
+            <button class="modal-close" @onclick="CloseModal">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label class="form-label">Название цели</label>
+                <input class="form-input" type="text"
+                       placeholder="Например: Отпуск в Таиланде"
+                       @bind="_form.Name" @bind:event="oninput" />
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Целевая сумма (₽)</label>
+                <input class="form-input" type="number" min="0" step="1"
+                       @bind="_form.TargetAmount" @bind:event="oninput" />
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Уже накоплено (₽)</label>
+                <input class="form-input" type="number" min="0" step="1"
+                       @bind="_form.CurrentAmount" @bind:event="oninput" />
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Дедлайн</label>
+                <input class="form-input" type="date" @bind="_formDeadline" />
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Иконка</label>
+                <div class="icon-picker">
+                    @foreach (var ic in _icons)
+                    {
+                        <span class="icon-opt @(_form.Icon == ic ? "selected" : "")"
+                              @onclick="() => _form.Icon = ic">@ic</span>
+                    }
+                </div>
+            </div>
+
+            @if (!string.IsNullOrEmpty(_formError))
+            {
+                <div class="form-error"><span>⚠️</span> @_formError</div>
+            }
+
+            <div class="form-actions">
+                <button class="btn-secondary" @onclick="CloseModal">Отмена</button>
+                <button class="btn-primary" @onclick="SaveGoal" disabled="@_saving">
+                    @(_saving ? "Сохранение..." : "Сохранить")
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Deposit Modal -->
+<div class="modal-overlay @(_depositModalOpen ? "open" : "")" @onclick="CloseDepositOnOverlay">
+    <div class="modal" @onclick:stopPropagation>
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <h3 class="modal-title">💰 Пополнить цель</h3>
+            <button class="modal-close" @onclick="CloseDepositModal">✕</button>
+        </div>
+        <div class="modal-body">
+            @if (_depositGoal != null)
+            {
+                <div style="text-align:center;margin-bottom:20px;">
+                    <div style="font-size:36px;">@_depositGoal.Icon</div>
+                    <div style="font-weight:700;font-size:16px;margin-top:8px;">@_depositGoal.Name</div>
+                    <div style="color:var(--text-muted);font-size:13px;margin-top:4px;">
+                        ₽@_depositGoal.CurrentAmount.ToString("N0") из ₽@_depositGoal.TargetAmount.ToString("N0")
+                    </div>
+                </div>
+            }
+            <div class="form-group">
+                <label class="form-label">Сумма пополнения (₽)</label>
+                <input class="form-input" type="number" min="0" step="1"
+                       placeholder="0"
+                       @bind="_depositAmount" @bind:event="oninput" />
+            </div>
+
+            @if (!string.IsNullOrEmpty(_depositError))
+            {
+                <div class="form-error"><span>⚠️</span> @_depositError</div>
+            }
+
+            <div class="form-actions">
+                <button class="btn-secondary" @onclick="CloseDepositModal">Отмена</button>
+                <button class="btn-primary" @onclick="ConfirmDeposit" disabled="@_saving">
+                    @(_saving ? "..." : "Пополнить")
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private bool _loading = true;
+    private bool _modalOpen = false;
+    private bool _depositModalOpen = false;
+    private bool _saving = false;
+    private string _formError = "";
+    private string _depositError = "";
+    private int? _editingId = null;
+    private Goal? _depositGoal = null;
+    private decimal _depositAmount = 0;
+
+    private List<Goal> _goals = new();
+
+    private readonly string[] _icons =
+        ["✈️","🏠","🚗","📱","💎","🎓","💪","🌍","🏖️","🎮","🛒","💊","🍕","☕","🎵","📷"];
+
+    private class FormModel
+    {
+        public string Name { get; set; } = "";
+        public string Icon { get; set; } = "✈️";
+        public decimal TargetAmount { get; set; }
+        public decimal CurrentAmount { get; set; }
+    }
+
+    private FormModel _form = new();
+    private DateTime? _formDeadline = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Fab.Register(OnFabTriggered);
+        await LoadGoals();
+    }
+
+    private Task OnFabTriggered()
+    {
+        _editingId = null;
+        _form = new FormModel();
+        _formDeadline = null;
+        _formError = "";
+        _modalOpen = true;
+        StateHasChanged();   // ← ВАЖНО
+        return Task.CompletedTask;
+    }
+
+    private async Task LoadGoals()
+    {
+        _loading = true;
+        try
+        {
+            _goals = await Api.GetGoalsAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Goals] LoadGoals error: {ex.Message}");
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void OpenAddModal()
+    {
+        _editingId = null;
+        _form = new FormModel();
+        _formDeadline = null;
+        _formError = "";
+        _modalOpen = true;
+    }
+
+    private void EditGoal(Goal g)
+    {
+        _editingId = g.Id;
+        _form = new FormModel
+        {
+            Name = g.Name,
+            Icon = g.Icon,
+            TargetAmount = g.TargetAmount,
+            CurrentAmount = g.CurrentAmount
+        };
+        _formDeadline = string.IsNullOrEmpty(g.Deadline) ? null
+            : DateOnly.TryParse(g.Deadline, out var d) ? d.ToDateTime(TimeOnly.MinValue) : null;
+        _formError = "";
+        _modalOpen = true;
+    }
+
+    private async Task SaveGoal()
+    {
+        if (string.IsNullOrWhiteSpace(_form.Name)) { _formError = "Введите название цели"; return; }
+        if (_form.TargetAmount <= 0) { _formError = "Введите целевую сумму"; return; }
+
+        _saving = true;
+        _formError = "";
+
+        var data = new GoalCreate
+        {
+            Name = _form.Name,
+            Icon = _form.Icon,
+            TargetAmount = _form.TargetAmount,
+            CurrentAmount = _form.CurrentAmount,
+            Deadline = _formDeadline.HasValue
+                ? DateOnly.FromDateTime(_formDeadline.Value).ToString("yyyy-MM-dd")
+                : null
+        };
+
+        string error;
+        if (_editingId.HasValue)
+        {
+            var (g, err) = await Api.UpdateGoalAsync(_editingId.Value, data);
+            error = err;
+            if (g != null)
+            {
+                var idx = _goals.FindIndex(x => x.Id == g.Id);
+                if (idx >= 0) _goals[idx] = g;
+            }
+        }
+        else
+        {
+            var (g, err) = await Api.CreateGoalAsync(data);
+            error = err;
+            if (g != null) _goals.Insert(0, g);
+        }
+
+        _saving = false;
+        if (string.IsNullOrEmpty(error))
+        {
+            CloseModal();
+            await MainLayout.ShowToast(_editingId.HasValue ? "✅ Цель обновлена" : "✅ Цель добавлена", "success");
+        }
+        else { _formError = "Ошибка: " + error; }
+    }
+
+    private async Task DeleteGoal(Goal g)
+    {
+        var (ok, _) = await Api.DeleteGoalAsync(g.Id);
+        if (ok)
+        {
+            _goals.Remove(g);
+            await MainLayout.ShowToast("🗑️ Цель удалена", "info");
+        }
+        else await MainLayout.ShowToast("❌ Ошибка удаления", "error");
+    }
+
+    private void OpenDeposit(Goal g)
+    {
+        _depositGoal = g;
+        _depositAmount = 0;
+        _depositError = "";
+        _depositModalOpen = true;
+    }
+
+    private async Task ConfirmDeposit()
+    {
+        if (_depositGoal == null || _depositAmount <= 0) { _depositError = "Введите сумму"; return; }
+        _saving = true;
+        _depositError = "";
+
+        var data = new GoalCreate
+        {
+            Name = _depositGoal.Name,
+            Icon = _depositGoal.Icon,
+            TargetAmount = _depositGoal.TargetAmount,
+            CurrentAmount = _depositGoal.CurrentAmount + _depositAmount,
+            Deadline = _depositGoal.Deadline
+        };
+
+        var (g, err) = await Api.UpdateGoalAsync(_depositGoal.Id, data);
+        _saving = false;
+
+        if (g != null)
+        {
+            var idx = _goals.FindIndex(x => x.Id == g.Id);
+            if (idx >= 0) _goals[idx] = g;
+            CloseDepositModal();
+            await MainLayout.ShowToast($"💰 +₽{_depositAmount:N0} добавлено", "success");
+        }
+        else _depositError = "Ошибка: " + err;
+    }
+
+    private void CloseModal() { _modalOpen = false; _formError = ""; }
+    private void CloseOnOverlay() => CloseModal();
+    private void CloseDepositModal() { _depositModalOpen = false; _depositError = ""; }
+    private void CloseDepositOnOverlay() => CloseDepositModal();
+
+    public void Dispose() => Fab.Unregister();
+}

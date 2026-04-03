@@ -1,0 +1,155 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Регистрация — FinanceFlow</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{% static 'www/css/auth.css' %}" />
+</head>
+<body>
+  <div class="auth-bg">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+  </div>
+
+  <div class="auth-wrapper">
+    <div class="auth-card">
+      <!-- Logo -->
+      <div class="auth-logo">
+        <div class="logo-icon">₽</div>
+        <span class="logo-text">FinanceFlow</span>
+      </div>
+
+      <h1 class="auth-title">Создайте аккаунт</h1>
+      <p class="auth-subtitle">Начните контролировать свои финансы</p>
+
+      {% if error %}
+      <div class="auth-error">
+        <span class="error-icon">⚠️</span> {{ error }}
+      </div>
+      {% endif %}
+
+      <form method="post" class="auth-form" novalidate>
+        {% csrf_token %}
+
+        <div class="form-group">
+          <label class="form-label" for="username">Имя пользователя</label>
+          <div class="input-wrap">
+            <span class="input-icon">👤</span>
+            <input
+              type="text"
+              id="username"
+              name="username"
+              class="form-input"
+              placeholder="Придумайте логин"
+              autocomplete="username"
+              required
+            />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="email">Email <span class="optional">(необязательно)</span></label>
+          <div class="input-wrap">
+            <span class="input-icon">✉️</span>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              class="form-input"
+              placeholder="example@mail.ru"
+              autocomplete="email"
+            />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="password">Пароль</label>
+          <div class="input-wrap">
+            <span class="input-icon">🔒</span>
+            <input
+              type="password"
+              id="password"
+              name="password"
+              class="form-input"
+              placeholder="Минимум 6 символов"
+              autocomplete="new-password"
+              required
+            />
+            <button type="button" class="toggle-pw" id="togglePw" aria-label="Показать пароль">👁</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="password2">Подтвердите пароль</label>
+          <div class="input-wrap">
+            <span class="input-icon">🔒</span>
+            <input
+              type="password"
+              id="password2"
+              name="password2"
+              class="form-input"
+              placeholder="Повторите пароль"
+              autocomplete="new-password"
+              required
+            />
+          </div>
+        </div>
+
+        <!-- Password strength indicator -->
+        <div class="pw-strength" id="pwStrength">
+          <div class="pw-bar" id="pwBar"></div>
+        </div>
+        <div class="pw-hint" id="pwHint">Введите пароль</div>
+
+        <button type="submit" class="auth-btn">
+          Зарегистрироваться
+          <span class="btn-arrow">→</span>
+        </button>
+      </form>
+
+      <div class="auth-footer">
+        Уже есть аккаунт?
+        <a href="{% url 'login' %}" class="auth-link">Войти</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Toggle password visibility
+    document.getElementById('togglePw').addEventListener('click', function () {
+      const inp = document.getElementById('password');
+      inp.type = inp.type === 'password' ? 'text' : 'password';
+      this.textContent = inp.type === 'password' ? '👁' : '🙈';
+    });
+
+    // Password strength checker
+    const pwInput = document.getElementById('password');
+    const pwBar   = document.getElementById('pwBar');
+    const pwHint  = document.getElementById('pwHint');
+
+    const strengthLevels = [
+      { min: 0,  label: 'Очень слабый', color: '#f75f6c', width: '15%' },
+      { min: 4,  label: 'Слабый',       color: '#f7a845', width: '35%' },
+      { min: 6,  label: 'Средний',      color: '#fbbf24', width: '60%' },
+      { min: 8,  label: 'Хороший',      color: '#22d3a0', width: '80%' },
+      { min: 12, label: 'Отличный',     color: '#4f8ef7', width: '100%' },
+    ];
+
+    pwInput.addEventListener('input', () => {
+      const val = pwInput.value;
+      if (!val) { pwBar.style.width = '0'; pwHint.textContent = 'Введите пароль'; return; }
+      const level = strengthLevels.reduce((acc, l) => val.length >= l.min ? l : acc, strengthLevels[0]);
+      pwBar.style.width = level.width;
+      pwBar.style.background = level.color;
+      pwHint.textContent = level.label;
+      pwHint.style.color  = level.color;
+    });
+  </script>
+</body>
+</html>

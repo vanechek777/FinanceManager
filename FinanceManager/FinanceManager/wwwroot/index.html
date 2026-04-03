@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>FinanceFlow</title>
+    <base href="/" />
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- App styles -->
+    <link rel="stylesheet" href="_content/FinanceManager.Shared/app.css" />
+</head>
+<body>
+    <div id="app">
+        <div style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#08090d;">
+            <div style="text-align:center;">
+                <div style="width:56px;height:56px;border-radius:12px;background:linear-gradient(135deg,#4f8ef7,#7b5ea7);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;color:#fff;margin:0 auto 16px;box-shadow:0 0 30px rgba(79,142,247,0.4);">₽</div>
+                <div style="font-family:Inter,sans-serif;font-size:18px;font-weight:700;background:linear-gradient(135deg,#4f8ef7,#7b5ea7);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;">FinanceFlow</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="blazor-error-ui">
+        An unhandled error has occurred.
+        <a href="." class="reload">Reload</a>
+        <span class="dismiss">🗙</span>
+    </div>
+
+    <script src="_framework/blazor.webview.js" autostart="false"></script>
+    <script src="chartInterop.js"></script>
+</body>
+</html>

@@ -1,0 +1,307 @@
+@page "/analytics"
+@using FinanceManager.Shared.Services
+@using FinanceManager.Shared.Models
+@using Microsoft.JSInterop
+@inject ApiService Api
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+<PageTitle>FinanceFlow — Аналитика</PageTitle>
+
+<!-- Period tabs -->
+<div class="period-tabs">
+    @foreach (var p in _periods)
+    {
+        <button class="period-tab @(_period == p.Key ? "active" : "")"
+                @onclick="() => SetPeriod(p.Key)">@p.Value</button>
+    }
+</div>
+
+@if (_loading)
+{
+    <div class="loading-spinner"><div class="spinner"></div></div>
+}
+else
+{
+    <!-- Monthly Bar Chart -->
+    <div class="chart-card">
+        <div class="chart-title">Доходы и расходы по месяцам</div>
+        <div class="chart-container">
+            <canvas id="monthlyChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Summary row -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+        <div class="stat-card income" style="padding:14px;">
+            <div class="stat-card-bg"></div>
+            <div class="stat-label">Доходы</div>
+            <div class="stat-value" style="font-size:18px;">₽@_totalIncome.ToString("N0")</div>
+        </div>
+        <div class="stat-card expense" style="padding:14px;">
+            <div class="stat-card-bg"></div>
+            <div class="stat-label">Расходы</div>
+            <div class="stat-value" style="font-size:18px;">₽@_totalExpense.ToString("N0")</div>
+        </div>
+    </div>
+
+    <!-- Expense Donut -->
+    @if (_expenseCats.Count > 0)
+    {
+        <div class="chart-card">
+            <div class="chart-title">Расходы по категориям</div>
+            <div class="chart-container" style="height:220px;">
+                <canvas id="expenseDonut"></canvas>
+            </div>
+        </div>
+    }
+
+    <!-- Category Breakdown -->
+    @if (_catBreakdown.Count > 0)
+    {
+        <div class="section-card">
+            <div class="section-header">
+                <h2 class="section-title">Анализ по категориям</h2>
+            </div>
+            <div class="category-breakdown">
+                @foreach (var row in _catBreakdown)
+                {
+                    <div class="cat-row">
+                        <span class="cat-row-icon">@row.Icon</span>
+                        <div class="cat-row-info">
+                            <div class="cat-row-name">@row.Name</div>
+                            <div class="cat-row-bar">
+                                <div class="cat-row-fill"
+                                     style="width:@row.Pct%;background:@row.Color;"></div>
+                            </div>
+                        </div>
+                        <div class="cat-row-stats">
+                            <span class="cat-row-amount">₽@row.Total.ToString("N0")</span>
+                            <span class="cat-row-pct">@row.Pct.ToString("N0")%</span>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    <!-- Income breakdown -->
+    @if (_incomeBreakdown.Count > 0)
+    {
+        <div class="section-card">
+            <div class="section-header">
+                <h2 class="section-title">Источники дохода</h2>
+            </div>
+            <div class="category-breakdown">
+                @foreach (var row in _incomeBreakdown)
+                {
+                    <div class="cat-row">
+                        <span class="cat-row-icon">@row.Icon</span>
+                        <div class="cat-row-info">
+                            <div class="cat-row-name">@row.Name</div>
+                            <div class="cat-row-bar">
+                                <div class="cat-row-fill"
+                                     style="width:@row.Pct%;background:var(--accent-green);"></div>
+                            </div>
+                        </div>
+                        <div class="cat-row-stats">
+                            <span class="cat-row-amount" style="color:var(--accent-green);">₽@row.Total.ToString("N0")</span>
+                            <span class="cat-row-pct">@row.Pct.ToString("N0")%</span>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    <!-- No data -->
+    @if (_catBreakdown.Count == 0 && _incomeBreakdown.Count == 0)
+    {
+        <div class="empty-state">
+            <div class="empty-icon">📊</div>
+            <div class="empty-text">Недостаточно данных за выбранный период</div>
+        </div>
+    }
+}
+
+@code {
+    private bool _loading = true;
+    private string _period = "month";
+
+    private List<Transaction> _allTx = new();
+    private List<Category> _categories = new();
+
+    private decimal _totalIncome;
+    private decimal _totalExpense;
+
+    private List<CatRow> _expenseCats = new();
+    private List<CatRow> _catBreakdown = new();
+    private List<CatRow> _incomeBreakdown = new();
+
+    private readonly Dictionary<string, string> _periods = new()
+    {
+        ["month"] = "Месяц",
+        ["year"]  = "Год",
+        ["all"]   = "Всё"
+    };
+
+    protected override async Task OnInitializedAsync() => await LoadData();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_loading) await RenderCharts();
+    }
+
+    private async Task LoadData()
+    {
+        _loading = true;
+        try
+        {
+            var txTask  = Api.GetTransactionsAsync();
+            var catTask = Api.GetCategoriesAsync();
+            await Task.WhenAll(txTask, catTask);
+            _allTx      = txTask.Result;
+            _categories = catTask.Result;
+
+            var catMap = _categories.ToDictionary(c => c.Id);
+            foreach (var tx in _allTx)
+                if (tx.Category.HasValue && catMap.TryGetValue(tx.Category.Value, out var c))
+                    tx.CategoryObj = c;
+
+            Recompute();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Analytics] LoadData error: {ex.Message}");
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task SetPeriod(string p)
+    {
+        _period = p;
+        Recompute();
+        StateHasChanged();
+        await Task.Delay(50);
+        await RenderCharts();
+    }
+
+    private void Recompute()
+    {
+        var filtered = FilterByPeriod(_allTx);
+        _totalIncome  = filtered.Where(t => t.Type == "income").Sum(t => t.Amount);
+        _totalExpense = filtered.Where(t => t.Type == "expense").Sum(t => t.Amount);
+
+        // Expense categories
+        var expGroups = filtered
+            .Where(t => t.Type == "expense" && t.CategoryObj != null)
+            .GroupBy(t => t.CategoryObj!)
+            .Select(g => new { Cat = g.Key, Total = g.Sum(t => t.Amount) })
+            .OrderByDescending(x => x.Total).Take(6).ToList();
+
+        var maxExp = expGroups.FirstOrDefault()?.Total ?? 1;
+        _expenseCats = expGroups.Select(x => new CatRow
+        {
+            Name  = x.Cat.Name, Icon = x.Cat.Icon, Color = x.Cat.Color,
+            Total = x.Total, Pct = maxExp > 0 ? (double)(x.Total / maxExp) * 100 : 0
+        }).ToList();
+        _catBreakdown = _expenseCats;
+
+        // Income categories
+        var incGroups = filtered
+            .Where(t => t.Type == "income" && t.CategoryObj != null)
+            .GroupBy(t => t.CategoryObj!)
+            .Select(g => new { Cat = g.Key, Total = g.Sum(t => t.Amount) })
+            .OrderByDescending(x => x.Total).Take(4).ToList();
+
+        var maxInc = incGroups.FirstOrDefault()?.Total ?? 1;
+        _incomeBreakdown = incGroups.Select(x => new CatRow
+        {
+            Name  = x.Cat.Name, Icon = x.Cat.Icon, Color = x.Cat.Color,
+            Total = x.Total, Pct = maxInc > 0 ? (double)(x.Total / maxInc) * 100 : 0
+        }).ToList();
+
+        // Monthly bar chart data (last 6 months)
+        BuildMonthlyData(filtered);
+    }
+
+    // Monthly chart data
+    private string[] _monthLabels = [];
+    private double[] _monthIncome = [];
+    private double[] _monthExpense = [];
+
+    private void BuildMonthlyData(List<Transaction> filtered)
+    {
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        var months = Enumerable.Range(0, 6)
+            .Select(i => today.AddMonths(-5 + i))
+            .ToList();
+
+        _monthLabels = months.Select(m => m.ToString("MMM", new System.Globalization.CultureInfo("ru-RU"))).ToArray();
+
+        _monthIncome = months.Select(m =>
+            (double)filtered
+                .Where(t => t.Type == "income" && DateOnly.TryParse(t.Date, out var d)
+                    && d.Year == m.Year && d.Month == m.Month)
+                .Sum(t => t.Amount)).ToArray();
+
+        _monthExpense = months.Select(m =>
+            (double)filtered
+                .Where(t => t.Type == "expense" && DateOnly.TryParse(t.Date, out var d)
+                    && d.Year == m.Year && d.Month == m.Month)
+                .Sum(t => t.Amount)).ToArray();
+    }
+
+    private async Task RenderCharts()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("chartInterop.renderBarChart",
+                "monthlyChart", _monthLabels, _monthIncome, _monthExpense);
+
+            if (_expenseCats.Count > 0)
+            {
+                var labels = _expenseCats.Select(c => c.Name).ToArray();
+                var data   = _expenseCats.Select(c => (double)c.Total).ToArray();
+                var colors = _expenseCats.Select(c => c.Color).ToArray();
+                await JS.InvokeVoidAsync("chartInterop.renderDoughnutChart",
+                    "expenseDonut", labels, data, colors);
+            }
+        }
+        catch { /* JS not ready yet */ }
+    }
+
+    private List<Transaction> FilterByPeriod(List<Transaction> all)
+    {
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        return _period switch
+        {
+            "month" => all.Where(t => DateOnly.TryParse(t.Date, out var d)
+                            && d.Year == today.Year && d.Month == today.Month).ToList(),
+            "year"  => all.Where(t => DateOnly.TryParse(t.Date, out var d)
+                            && d.Year == today.Year).ToList(),
+            _       => all
+        };
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try {
+            await JS.InvokeVoidAsync("chartInterop.destroyChart", "monthlyChart");
+            await JS.InvokeVoidAsync("chartInterop.destroyChart", "expenseDonut");
+        } catch { }
+    }
+
+    private record CatRow
+    {
+        public string Name  { get; init; } = "";
+        public string Icon  { get; init; } = "";
+        public string Color { get; init; } = "#4f8ef7";
+        public decimal Total { get; init; }
+        public double Pct   { get; init; }
+    }
+}

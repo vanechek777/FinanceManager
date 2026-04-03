@@ -1,0 +1,271 @@
+@page "/"
+@using FinanceManager.Shared.Services
+@using FinanceManager.Shared.Models
+@inject ApiService Api
+@inject AuthStateService Auth
+@inject NavigationManager Nav
+@inject FabService Fab
+@implements IDisposable
+
+<PageTitle>FinanceFlow — Главная</PageTitle>
+
+@if (_loading)
+{
+    <div class="loading-spinner"><div class="spinner"></div></div>
+}
+else
+{
+    @if (!string.IsNullOrEmpty(_loadError))
+    {
+        <div class="section-card" style="border-left:3px solid var(--accent-red);margin-bottom:16px;">
+            <div style="color:var(--accent-red);font-weight:600;">⚠️ Ошибка загрузки данных</div>
+            <div style="color:var(--text-muted);font-size:12px;margin-top:4px;">@_loadError</div>
+            <button class="btn-secondary" style="margin-top:10px;padding:6px 14px;font-size:12px;" @onclick="LoadData">Повторить</button>
+        </div>
+    }
+
+    <!-- Period Tabs -->
+    <div class="period-tabs">
+        @foreach (var p in _periods)
+        {
+            var key = p.Key;
+            <button class="period-tab @(_period == key ? "active" : "")"
+                    @onclick="() => SetPeriod(key)">@p.Value</button>
+        }
+    </div>
+
+    <!-- Stat Cards -->
+    <div class="stats-grid">
+        <div class="stat-card balance">
+            <div class="stat-card-bg"></div>
+            <div class="stat-icon">💰</div>
+            <div class="stat-label">Баланс</div>
+            <div class="stat-value">₽@_stats.Balance.ToString("N0")</div>
+            <div class="stat-trend">Чистый доход</div>
+        </div>
+        <div class="stat-card income">
+            <div class="stat-card-bg"></div>
+            <div class="stat-icon">📈</div>
+            <div class="stat-label">Доходы</div>
+            <div class="stat-value">₽@_stats.TotalIncome.ToString("N0")</div>
+            <div class="stat-trend">За период</div>
+        </div>
+        <div class="stat-card expense">
+            <div class="stat-card-bg"></div>
+            <div class="stat-icon">📉</div>
+            <div class="stat-label">Расходы</div>
+            <div class="stat-value">₽@_stats.TotalExpense.ToString("N0")</div>
+            <div class="stat-trend">За период</div>
+        </div>
+        <div class="stat-card savings">
+            <div class="stat-card-bg"></div>
+            <div class="stat-icon">🏦</div>
+            <div class="stat-label">Экономия</div>
+            <div class="stat-value">@_stats.SavingsRate.ToString("N0")%</div>
+            <div class="stat-trend">от доходов</div>
+        </div>
+    </div>
+
+    <!-- Recent Transactions -->
+    <div class="section-card">
+        <div class="section-header">
+            <h2 class="section-title">Последние операции</h2>
+            <button class="section-link" @onclick="GoToTransactions">Все →</button>
+        </div>
+
+        @if (_recentTx.Count == 0)
+        {
+            <div class="empty-state" style="padding:20px 0;">
+                <div class="empty-icon">💸</div>
+                <div class="empty-text">Нет транзакций за выбранный период</div>
+            </div>
+        }
+        else
+        {
+            <div class="transactions-list">
+                @foreach (var tx in _recentTx)
+                {
+                    <div class="transaction-item">
+                        <div class="tx-icon @tx.Type">
+                            @(tx.CategoryObj?.Icon ?? (tx.Type == "income" ? "📥" : "📤"))
+                        </div>
+                        <div class="tx-info">
+                            <div class="tx-desc">@tx.DisplayDescription</div>
+                            <div class="tx-cat">@(tx.CategoryObj?.Name ?? (tx.Type == "income" ? "Доход" : "Расход"))</div>
+                        </div>
+                        <div class="tx-meta">
+                            <span class="tx-amount @tx.Type">@(tx.Type == "income" ? "+" : "−")₽@tx.Amount.ToString("N0")</span>
+                            <span class="tx-date">@FormatDate(tx.Date)</span>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+
+    <!-- Top Expense Categories -->
+    @if (_topCategories.Count > 0)
+    {
+        <div class="section-card">
+            <div class="section-header">
+                <h2 class="section-title">Топ расходов</h2>
+            </div>
+            <div class="category-breakdown">
+                @foreach (var cat in _topCategories)
+                {
+                    <div class="cat-row">
+                        <span class="cat-row-icon">@cat.Icon</span>
+                        <div class="cat-row-info">
+                            <div class="cat-row-name">@cat.Name</div>
+                            <div class="cat-row-bar">
+                                <div class="cat-row-fill" style="width:@cat.Pct.ToString("F0")%;background:@cat.Color;"></div>
+                            </div>
+                        </div>
+                        <div class="cat-row-stats">
+                            <span class="cat-row-amount">₽@cat.Total.ToString("N0")</span>
+                            <span class="cat-row-pct">@cat.Pct.ToString("N0")%</span>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private bool _loading = true;
+    private string _period = "all";
+    private string _loadError = "";
+    private DashboardStats _stats = new();
+    private List<Transaction> _recentTx = new();
+    private List<CategoryStat> _topCategories = new();
+    private List<Transaction> _allTx = new();
+    private List<Category> _categories = new();
+
+    private readonly Dictionary<string, string> _periods = new()
+    {
+        ["week"]  = "Неделя",
+        ["month"] = "Месяц",
+        ["year"]  = "Год",
+        ["all"]   = "Всё"
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        Fab.Register(OnFabTriggered);
+        await LoadData();
+    }
+
+    private Task OnFabTriggered()
+    {
+        Nav.NavigateTo("/transactions");
+        return Task.CompletedTask;
+    }
+
+    private async Task LoadData()
+    {
+        _loading = true;
+        _loadError = "";
+        StateHasChanged();
+
+        try
+        {
+            var txTask  = Api.GetTransactionsAsync();
+            var catTask = Api.GetCategoriesAsync();
+            await Task.WhenAll(txTask, catTask);
+
+            _allTx      = txTask.Result;
+            _categories = catTask.Result;
+
+            if (_allTx.Count == 0 && _categories.Count == 0)
+                _loadError = "Не удалось загрузить данные. Проверьте интернет-соединение.";
+
+            var catMap = _categories.ToDictionary(c => c.Id);
+            foreach (var tx in _allTx)
+                if (tx.Category.HasValue && catMap.TryGetValue(tx.Category.Value, out var c))
+                    tx.CategoryObj = c;
+
+            Recompute();
+        }
+        catch (Exception ex)
+        {
+            _loadError = ex.Message;
+            Console.WriteLine($"[Dashboard] LoadData error: {ex}");
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void SetPeriod(string p)
+    {
+        _period = p;
+        Recompute();
+    }
+
+    private void Recompute()
+    {
+        var filtered = FilterByPeriod(_allTx);
+
+        _stats = new DashboardStats
+        {
+            TotalIncome  = filtered.Where(t => t.Type == "income").Sum(t => t.Amount),
+            TotalExpense = filtered.Where(t => t.Type == "expense").Sum(t => t.Amount)
+        };
+
+        _recentTx = filtered.Take(5).ToList();
+
+        var expenseCats = filtered
+            .Where(t => t.Type == "expense" && t.CategoryObj != null)
+            .GroupBy(t => t.CategoryObj!)
+            .Select(g => new { Cat = g.Key, Total = g.Sum(t => t.Amount) })
+            .OrderByDescending(x => x.Total)
+            .Take(4)
+            .ToList();
+
+        var maxTotal = expenseCats.Count > 0 ? expenseCats[0].Total : 1m;
+        _topCategories = expenseCats.Select(x => new CategoryStat
+        {
+            Name  = x.Cat.Name,
+            Icon  = x.Cat.Icon,
+            Color = x.Cat.Color,
+            Total = x.Total,
+            Pct   = maxTotal > 0 ? Math.Round((double)(x.Total / maxTotal) * 100, 1) : 0
+        }).ToList();
+    }
+
+    private List<Transaction> FilterByPeriod(List<Transaction> all)
+    {
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        return _period switch
+        {
+            "week"  => all.Where(t => DateOnly.TryParse(t.Date, out var d) && d >= today.AddDays(-7)).ToList(),
+            "month" => all.Where(t => DateOnly.TryParse(t.Date, out var d) && d.Year == today.Year && d.Month == today.Month).ToList(),
+            "year"  => all.Where(t => DateOnly.TryParse(t.Date, out var d) && d.Year == today.Year).ToList(),
+            _       => all
+        };
+    }
+
+    private void GoToTransactions() => Nav.NavigateTo("/transactions");
+
+    private string FormatDate(string raw)
+    {
+        if (!DateOnly.TryParse(raw, out var d)) return raw;
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        if (d == today) return "Сегодня";
+        if (d == today.AddDays(-1)) return "Вчера";
+        return d.ToString("dd.MM");
+    }
+
+    public void Dispose() => Fab.Unregister();
+
+    private class CategoryStat
+    {
+        public string Name   { get; set; } = "";
+        public string Icon   { get; set; } = "";
+        public string Color  { get; set; } = "#4f8ef7";
+        public decimal Total { get; set; }
+        public double Pct    { get; set; }
+    }
+}

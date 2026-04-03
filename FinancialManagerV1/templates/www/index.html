@@ -1,0 +1,350 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FinanceFlow — Личные финансы</title>
+  <meta name="description" content="Приложение для учёта и анализа личных финансов с интерактивными диаграммами." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="{% static 'www/css/style.css' %}" />
+</head>
+<body>
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">
+        <div class="logo-icon">₽</div>
+        <span class="logo-text">FinanceFlow</span>
+      </div>
+      <button class="sidebar-toggle" id="sidebarToggle" aria-label="Закрыть меню">✕</button>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a href="#" class="nav-item active" data-page="dashboard" id="nav-dashboard">
+        <span class="nav-icon">🏠</span>
+        <span class="nav-label">Дашборд</span>
+      </a>
+      <a href="#" class="nav-item" data-page="transactions" id="nav-transactions">
+        <span class="nav-icon">💳</span>
+        <span class="nav-label">Транзакции</span>
+      </a>
+      <a href="#" class="nav-item" data-page="analytics" id="nav-analytics">
+        <span class="nav-icon">📊</span>
+        <span class="nav-label">Аналитика</span>
+      </a>
+      <a href="#" class="nav-item" data-page="goals" id="nav-goals">
+        <span class="nav-icon">🎯</span>
+        <span class="nav-label">Цели</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-card">
+        <div class="user-avatar">{{ username|slice:':2'|upper }}</div>
+        <div class="user-info">
+          <span class="user-name">{{ username }}</span>
+          <span class="user-period" id="currentPeriodLabel">Этот месяц</span>
+        </div>
+      </div>
+      <a href="{% url 'logout' %}" class="logout-btn">🚪 Выйти</a>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main-wrapper">
+    <!-- Top bar -->
+    <header class="topbar">
+      <button class="menu-btn" id="menuBtn" aria-label="Открыть меню">☰</button>
+      <div class="topbar-title" id="topbarTitle">Дашборд</div>
+      <div class="topbar-actions">
+        <button class="btn-primary" id="addTransactionBtn">+ Добавить</button>
+        <select class="period-select" id="periodSelect">
+          <option value="all">Всё время</option>
+          <option value="month" selected>Этот месяц</option>
+          <option value="year">Этот год</option>
+          <option value="week">Эта неделя</option>
+        </select>
+        <a href="{% url 'logout' %}" class="topbar-logout" title="Выйти">🚪</a>
+      </div>
+    </header>
+
+    <!-- Pages -->
+    <main class="content">
+
+      <!-- ══════════════ DASHBOARD PAGE ══════════════ -->
+      <section class="page active" id="page-dashboard">
+        <div class="stats-grid">
+          <div class="stat-card balance">
+            <div class="stat-card-bg"></div>
+            <div class="stat-label">Баланс</div>
+            <div class="stat-value" id="totalBalance">₽0</div>
+            <div class="stat-trend" id="balanceTrend">—</div>
+          </div>
+          <div class="stat-card income">
+            <div class="stat-card-bg"></div>
+            <div class="stat-label">Доходы</div>
+            <div class="stat-value" id="totalIncome">₽0</div>
+            <div class="stat-trend" id="incomeTrend">—</div>
+          </div>
+          <div class="stat-card expense">
+            <div class="stat-card-bg"></div>
+            <div class="stat-label">Расходы</div>
+            <div class="stat-value" id="totalExpense">₽0</div>
+            <div class="stat-trend" id="expenseTrend">—</div>
+          </div>
+          <div class="stat-card savings">
+            <div class="stat-card-bg"></div>
+            <div class="stat-label">Экономия</div>
+            <div class="stat-value" id="savingsRate">0%</div>
+            <div class="stat-trend" id="savingsTrend">от доходов</div>
+          </div>
+        </div>
+
+        <div class="charts-row">
+          <div class="chart-card wide">
+            <div class="chart-card-header">
+              <h2 class="chart-title">Доходы и расходы по месяцам</h2>
+              <div class="chart-legend">
+                <span class="legend-dot income"></span>Доходы
+                <span class="legend-dot expense"></span>Расходы
+              </div>
+            </div>
+            <div class="chart-container">
+              <canvas id="monthlyChart"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-card-header">
+              <h2 class="chart-title">Расходы по категориям</h2>
+            </div>
+            <div class="chart-container donut-container">
+              <canvas id="categoryChart"></canvas>
+              <div class="donut-center" id="donutCenter">
+                <span class="donut-total" id="donutTotal">₽0</span>
+                <span class="donut-label">расходы</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-card">
+          <div class="section-header">
+            <h2 class="section-title">Последние операции</h2>
+            <a href="#" class="section-link" data-page="transactions">Все →</a>
+          </div>
+          <div class="transactions-list" id="recentTransactions">
+            <div class="empty-state">
+              <div class="empty-icon">💸</div>
+              <div class="empty-text">Нет транзакций. Добавьте первую!</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══════════════ TRANSACTIONS PAGE ══════════════ -->
+      <section class="page" id="page-transactions">
+        <div class="section-card">
+          <div class="section-header">
+            <h2 class="section-title">Все транзакции</h2>
+            <div class="filter-row">
+              <input type="text" class="search-input" id="searchInput" placeholder="🔍 Поиск..." />
+              <select class="filter-select" id="typeFilter">
+                <option value="all">Все</option>
+                <option value="income">Доходы</option>
+                <option value="expense">Расходы</option>
+              </select>
+              <select class="filter-select" id="catFilter">
+                <option value="all">Категории</option>
+              </select>
+            </div>
+          </div>
+          <div class="transactions-list full" id="allTransactions">
+            <div class="empty-state">
+              <div class="empty-icon">💳</div>
+              <div class="empty-text">Транзакций пока нет</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══════════════ ANALYTICS PAGE ══════════════ -->
+      <section class="page" id="page-analytics">
+        <div class="charts-row">
+          <div class="chart-card wide">
+            <div class="chart-card-header">
+              <h2 class="chart-title">Динамика баланса</h2>
+            </div>
+            <div class="chart-container">
+              <canvas id="balanceChart"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-card-header">
+              <h2 class="chart-title">Топ расходных категорий</h2>
+            </div>
+            <div class="chart-container">
+              <canvas id="topCatChart"></canvas>
+            </div>
+          </div>
+        </div>
+        <div class="charts-row">
+          <div class="chart-card wide">
+            <div class="chart-card-header">
+              <h2 class="chart-title">Расходы по неделям</h2>
+            </div>
+            <div class="chart-container">
+              <canvas id="weeklyChart"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-card-header">
+              <h2 class="chart-title">Доходы по категориям</h2>
+            </div>
+            <div class="chart-container donut-container">
+              <canvas id="incomeCatChart"></canvas>
+            </div>
+          </div>
+        </div>
+        <div class="section-card">
+          <div class="section-header">
+            <h2 class="section-title">Анализ по категориям</h2>
+          </div>
+          <div id="categoryBreakdown" class="category-breakdown"></div>
+        </div>
+      </section>
+
+      <!-- ══════════════ GOALS PAGE ══════════════ -->
+      <section class="page" id="page-goals">
+        <div class="section-card">
+          <div class="section-header">
+            <h2 class="section-title">Финансовые цели</h2>
+            <button class="btn-primary" id="addGoalBtn">+ Новая цель</button>
+          </div>
+          <div class="goals-grid" id="goalsList">
+            <div class="empty-state">
+              <div class="empty-icon">🎯</div>
+              <div class="empty-text">Добавьте первую финансовую цель!</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div><!-- /main-wrapper -->
+
+  <!-- ══ BOTTOM NAV (mobile only) ══ -->
+  <nav class="bottom-nav" id="bottomNav" aria-label="Навигация">
+    <div class="bottom-nav-inner">
+      <a href="#" class="bnav-item active" data-page="dashboard">
+        <span class="bnav-icon">🏠</span>
+        <span class="bnav-label">Главная</span>
+      </a>
+      <a href="#" class="bnav-item" data-page="transactions">
+        <span class="bnav-icon">💳</span>
+        <span class="bnav-label">Расходы</span>
+      </a>
+      <a href="#" class="bnav-item" data-page="analytics">
+        <span class="bnav-icon">📊</span>
+        <span class="bnav-label">Графики</span>
+      </a>
+      <a href="#" class="bnav-item" data-page="goals">
+        <span class="bnav-icon">🎯</span>
+        <span class="bnav-label">Цели</span>
+      </a>
+    </div>
+  </nav>
+
+  <!-- FAB — add transaction (mobile) -->
+  <button class="bnav-fab" id="fabBtn" aria-label="Добавить операцию">＋</button>
+
+  <!-- Add Transaction Modal -->
+  <div class="modal-overlay" id="transactionModal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal-header">
+        <h3 class="modal-title" id="modalTitle">Новая операция</h3>
+        <button class="modal-close" id="closeTransactionModal" aria-label="Закрыть">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="type-toggle">
+          <button class="type-btn active" data-type="expense" id="typeExpense">📤 Расход</button>
+          <button class="type-btn" data-type="income" id="typeIncome">📥 Доход</button>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Сумма (₽)</label>
+          <input type="number" class="form-input" id="amountInput" placeholder="0.00" min="0" step="0.01" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Категория</label>
+          <select class="form-input" id="categoryInput"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Дата</label>
+          <input type="date" class="form-input" id="dateInput" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Описание</label>
+          <input type="text" class="form-input" id="descriptionInput" placeholder="Краткое описание..." />
+        </div>
+        <div class="form-actions">
+          <button class="btn-secondary" id="cancelTransaction">Отмена</button>
+          <button class="btn-primary" id="saveTransaction">Сохранить</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Goal Modal -->
+  <div class="modal-overlay" id="goalModal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="goalModalTitle">
+      <div class="modal-header">
+        <h3 class="modal-title" id="goalModalTitle">Новая цель</h3>
+        <button class="modal-close" id="closeGoalModal" aria-label="Закрыть">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Название цели</label>
+          <input type="text" class="form-input" id="goalName" placeholder="Например: Отпуск в Тайланде" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Целевая сумма (₽)</label>
+          <input type="number" class="form-input" id="goalTarget" placeholder="0" min="0" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Уже накоплено (₽)</label>
+          <input type="number" class="form-input" id="goalCurrent" placeholder="0" min="0" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Дедлайн</label>
+          <input type="date" class="form-input" id="goalDeadline" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Иконка</label>
+          <div class="icon-picker" id="iconPicker">
+            <span class="icon-opt selected" data-icon="✈️">✈️</span>
+            <span class="icon-opt" data-icon="🏠">🏠</span>
+            <span class="icon-opt" data-icon="🚗">🚗</span>
+            <span class="icon-opt" data-icon="📱">📱</span>
+            <span class="icon-opt" data-icon="💎">💎</span>
+            <span class="icon-opt" data-icon="🎓">🎓</span>
+            <span class="icon-opt" data-icon="💪">💪</span>
+            <span class="icon-opt" data-icon="🌍">🌍</span>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn-secondary" id="cancelGoal">Отмена</button>
+          <button class="btn-primary" id="saveGoal">Сохранить цель</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script src="{% static 'www/js/app.js' %}"></script>
+</body>
+</html>

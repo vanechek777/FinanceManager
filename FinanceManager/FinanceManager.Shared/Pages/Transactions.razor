@@ -1,0 +1,325 @@
+@page "/transactions"
+@using FinanceManager.Shared.Services
+@using FinanceManager.Shared.Models
+@inject ApiService Api
+@inject NavigationManager Nav
+@inject FabService Fab
+@implements IDisposable
+
+<PageTitle>FinanceFlow — Транзакции</PageTitle>
+
+<!-- Filters -->
+<div class="filter-row">
+    <input class="search-input"
+           type="text"
+           placeholder="🔍 Поиск..."
+           @bind="_search"
+           @bind:event="oninput" />
+    <select class="filter-select" @bind="_typeFilter">
+        <option value="all">Все</option>
+        <option value="income">Доходы</option>
+        <option value="expense">Расходы</option>
+    </select>
+    <select class="filter-select" @bind="_catFilter">
+        <option value="0">Категория</option>
+        @foreach (var c in _categories)
+        {
+            <option value="@c.Id">@c.Icon @c.Name</option>
+        }
+    </select>
+</div>
+
+<!-- List -->
+@if (_loading)
+{
+    <div class="loading-spinner"><div class="spinner"></div></div>
+}
+else if (Filtered.Count() == 0)
+{
+    <div class="empty-state">
+        <div class="empty-icon">💳</div>
+        <div class="empty-text">Транзакций не найдено</div>
+    </div>
+}
+else
+{
+    <!-- Group by date -->
+    @foreach (var group in Grouped)
+    {
+        <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin:14px 0 6px;padding:0 2px;">
+            @group.Key
+        </div>
+        <div class="transactions-list" style="margin-bottom:4px;">
+            @foreach (var tx in group)
+            {
+                <div class="transaction-item" style="position:relative;">
+                    <div class="tx-icon @tx.Type">
+                        @(tx.CategoryObj?.Icon ?? (tx.Type == "income" ? "📥" : "📤"))
+                    </div>
+                    <div class="tx-info">
+                        <div class="tx-desc">@tx.DisplayDescription</div>
+                        <div class="tx-cat">
+                            <span class="chip @tx.Type">@tx.Type</span>
+                            @if (!string.IsNullOrEmpty(tx.CategoryObj?.Name))
+                            { <span> · @tx.CategoryObj.Name</span> }
+                        </div>
+                    </div>
+                    <div class="tx-meta">
+                        <span class="tx-amount @tx.Type">@(tx.Type == "income" ? "+" : "−")₽@tx.Amount.ToString("N0")</span>
+                        <div style="display:flex;gap:4px;margin-top:4px;">
+                            <button class="btn-icon" style="width:28px;height:28px;font-size:12px;"
+                                    @onclick="() => EditTx(tx)" title="Изменить">✏️</button>
+                            <button class="btn-icon" style="width:28px;height:28px;font-size:12px;color:var(--accent-red);"
+                                    @onclick="() => DeleteTx(tx)" title="Удалить">🗑️</button>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+}
+
+<!-- Add / Edit Modal -->
+<div class="modal-overlay @(_modalOpen ? "open" : "")" @onclick="CloseOnOverlay">
+    <div class="modal" @onclick:stopPropagation>
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <h3 class="modal-title">@(_editingId.HasValue ? "Редактировать" : "Новая операция")</h3>
+            <button class="modal-close" @onclick="CloseModal">✕</button>
+        </div>
+        <div class="modal-body">
+            <!-- Type toggle -->
+            <div class="type-toggle">
+                <button class="type-btn @(_form.Type == "expense" ? "active" : "")"
+                        data-type="expense"
+                        @onclick='() => _form.Type = "expense"'>📤 Расход</button>
+                <button class="type-btn @(_form.Type == "income" ? "active" : "")"
+                        data-type="income"
+                        @onclick='() => _form.Type = "income"'>📥 Доход</button>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Сумма (₽)</label>
+                <input class="form-input" type="number" placeholder="0.00"
+                       min="0" step="0.01"
+                       @bind="_form.Amount" @bind:event="oninput" />
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Категория</label>
+                <select class="form-input" @bind="_form.Category">
+                    <option value="">— Без категории —</option>
+                    @foreach (var c in _categories.Where(c => c.Type == _form.Type || _form.Type == ""))
+                    {
+                        <option value="@c.Id">@c.Icon @c.Name</option>
+                    }
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Дата</label>
+                <input class="form-input" type="date" @bind="_formDate" />
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Описание</label>
+                <input class="form-input" type="text" placeholder="Краткое описание..."
+                       @bind="_form.Description" @bind:event="oninput" />
+            </div>
+
+            @if (!string.IsNullOrEmpty(_formError))
+            {
+                <div class="form-error"><span>⚠️</span> @_formError</div>
+            }
+
+            <div class="form-actions">
+                <button class="btn-secondary" @onclick="CloseModal">Отмена</button>
+                <button class="btn-primary" @onclick="SaveTx" disabled="@_saving">
+                    @(_saving ? "Сохранение..." : "Сохранить")
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private bool _loading = true;
+    private bool _modalOpen = false;
+    private bool _saving = false;
+    private string _search = "";
+    private string _typeFilter = "all";
+    private int _catFilter = 0;
+    private string _formError = "";
+    private int? _editingId = null;
+
+    private List<Transaction> _allTx = new();
+    private List<Category> _categories = new();
+
+    // Form model
+    private FormModel _form = new();
+    private DateTime _formDate = DateTime.Today;
+
+    private class FormModel
+    {
+        public string Type { get; set; } = "expense";
+        public decimal Amount { get; set; }
+        public int? Category { get; set; }
+        public string Description { get; set; } = "";
+    }
+
+    private IEnumerable<Transaction> Filtered => _allTx
+        .Where(t => (_typeFilter == "all" || t.Type == _typeFilter))
+        .Where(t => (_catFilter == 0 || t.Category == _catFilter))
+        .Where(t => string.IsNullOrEmpty(_search)
+            || t.DisplayDescription.Contains(_search, StringComparison.OrdinalIgnoreCase)
+            || (t.CategoryObj?.Name ?? "").Contains(_search, StringComparison.OrdinalIgnoreCase));
+
+    private IEnumerable<IGrouping<string, Transaction>> Grouped => Filtered
+        .GroupBy(t => GroupDate(t.Date));
+
+    protected override async Task OnInitializedAsync()
+    {
+        Fab.Register(OnFabTriggered);
+        await LoadData();
+    }
+
+    // FAB → открыть модал добавления
+    private Task OnFabTriggered()
+    {
+        _editingId = null;
+        _form = new FormModel();
+        _formDate = DateTime.Today;
+        _formError = "";
+        _modalOpen = true;
+        StateHasChanged();   // ← ВАЖНО: без этого Blazor не перерисует компонент
+        return Task.CompletedTask;
+    }
+
+    private async Task LoadData()
+    {
+        _loading = true;
+        try
+        {
+            var txTask  = Api.GetTransactionsAsync();
+            var catTask = Api.GetCategoriesAsync();
+            await Task.WhenAll(txTask, catTask);
+            _allTx      = txTask.Result;
+            _categories = catTask.Result;
+            var catMap  = _categories.ToDictionary(c => c.Id);
+            foreach (var tx in _allTx)
+                if (tx.Category.HasValue && catMap.TryGetValue(tx.Category.Value, out var c))
+                    tx.CategoryObj = c;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Transactions] LoadData error: {ex.Message}");
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void OpenAddModal()
+    {
+        _editingId = null;
+        _form = new FormModel();
+        _formDate = DateTime.Today;
+        _formError = "";
+        _modalOpen = true;
+    }
+
+    private void EditTx(Transaction tx)
+    {
+        _editingId = tx.Id;
+        _form = new FormModel
+        {
+            Type = tx.Type,
+            Amount = tx.Amount,
+            Category = tx.Category,
+            Description = tx.Description
+        };
+        _ = DateOnly.TryParse(tx.Date, out var d);
+        _formDate = d.ToDateTime(TimeOnly.MinValue);
+        _formError = "";
+        _modalOpen = true;
+    }
+
+    private async Task SaveTx()
+    {
+        if (_form.Amount <= 0) { _formError = "Введите сумму больше 0"; return; }
+
+        _saving = true;
+        _formError = "";
+
+        var data = new TransactionCreate
+        {
+            Type = _form.Type,
+            Amount = _form.Amount,
+            Category = _form.Category,
+            Description = _form.Description,
+            Date = DateOnly.FromDateTime(_formDate).ToString("yyyy-MM-dd")
+        };
+
+        string error;
+        if (_editingId.HasValue)
+        {
+            var (tx, err) = await Api.UpdateTransactionAsync(_editingId.Value, data);
+            error = err;
+            if (tx != null)
+            {
+                var idx = _allTx.FindIndex(t => t.Id == tx.Id);
+                if (idx >= 0) { tx.CategoryObj = _categories.FirstOrDefault(c => c.Id == tx.Category); _allTx[idx] = tx; }
+            }
+        }
+        else
+        {
+            var (tx, err) = await Api.CreateTransactionAsync(data);
+            error = err;
+            if (tx != null)
+            {
+                tx.CategoryObj = _categories.FirstOrDefault(c => c.Id == tx.Category);
+                _allTx.Insert(0, tx);
+            }
+        }
+
+        _saving = false;
+        if (string.IsNullOrEmpty(error))
+        {
+            CloseModal();
+            await MainLayout.ShowToast(_editingId.HasValue ? "✅ Изменено" : "✅ Добавлено", "success");
+        }
+        else
+        {
+            _formError = "Ошибка: " + error;
+        }
+    }
+
+    private async Task DeleteTx(Transaction tx)
+    {
+        var (ok, err) = await Api.DeleteTransactionAsync(tx.Id);
+        if (ok)
+        {
+            _allTx.Remove(tx);
+            await MainLayout.ShowToast("🗑️ Удалено", "info");
+        }
+        else
+        {
+            await MainLayout.ShowToast("❌ Ошибка удаления", "error");
+        }
+    }
+
+    private void CloseModal() { _modalOpen = false; _formError = ""; }
+    private void CloseOnOverlay() => CloseModal();
+
+    private string GroupDate(string raw)
+    {
+        if (!DateOnly.TryParse(raw, out var d)) return raw;
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        if (d == today) return "Сегодня";
+        if (d == today.AddDays(-1)) return "Вчера";
+        return d.ToString("d MMMM", new System.Globalization.CultureInfo("ru-RU"));
+    }
+
+    public void Dispose() => Fab.Unregister();
+}

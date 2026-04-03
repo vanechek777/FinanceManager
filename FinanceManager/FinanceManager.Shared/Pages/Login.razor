@@ -1,0 +1,113 @@
+@page "/login"
+@using FinanceManager.Shared.Services
+@using FinanceManager.Shared.Models
+@inject ApiService Api
+@inject AuthStateService Auth
+@inject NavigationManager Nav
+
+<div class="login-page">
+    <div class="login-card">
+        <!-- Logo -->
+        <div class="login-logo">
+            <div class="login-logo-icon">₽</div>
+            <div class="login-logo-text">FinanceFlow</div>
+            <div class="login-subtitle">Управляй своими финансами</div>
+        </div>
+
+        <!-- Error -->
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <div class="form-error">
+                <span>⚠️</span> @_error
+            </div>
+        }
+
+        <!-- Form -->
+        <div class="form-group">
+            <label class="form-label">Логин</label>
+            <input class="form-input"
+                   type="text"
+                   placeholder="Ваш логин"
+                   @bind="_username"
+                   @bind:event="oninput"
+                   @onkeydown="OnKeyDown"
+                   autocomplete="username" />
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Пароль</label>
+            <input class="form-input"
+                   type="password"
+                   placeholder="••••••••"
+                   @bind="_password"
+                   @bind:event="oninput"
+                   @onkeydown="OnKeyDown"
+                   autocomplete="current-password" />
+        </div>
+
+        <button class="btn-primary btn-block"
+                @onclick="LoginAsync"
+                disabled="@_loading">
+            @if (_loading)
+            {
+                <span class="spinner" style="width:18px;height:18px;border-width:2px;margin-right:8px;display:inline-block;"></span>
+                <span>Вход...</span>
+            }
+            else
+            {
+                <span>Войти</span>
+            }
+        </button>
+    </div>
+</div>
+
+@code {
+    private string _username = "";
+    private string _password = "";
+    private string _error = "";
+    private bool _loading = false;
+
+    // NOTE: No NavigateTo in OnInitialized — prevents exception when rendered
+    // as embedded component inside MainLayout. Auth check is done in MainLayout.
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await LoginAsync();
+    }
+
+    private async Task LoginAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_username) || string.IsNullOrWhiteSpace(_password))
+        {
+            _error = "Введите логин и пароль";
+            return;
+        }
+
+        _loading = true;
+        _error = "";
+        StateHasChanged();
+
+        try
+        {
+            var (success, error) = await Api.LoginAsync(_username, _password);
+
+            if (success)
+            {
+                // AuthStateService.OnAuthStateChanged fires → MainLayout re-renders → shows app
+                Nav.NavigateTo("/");
+            }
+            else
+            {
+                _error = error;
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = $"Ошибка подключения: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

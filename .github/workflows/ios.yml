@@ -44,15 +44,22 @@ jobs:
         xcode-select -p || true
         xcodebuild -version || true
         
-        # Выбираем новейший Xcode
-        LATEST=$(ls /Applications/ | grep -E '^Xcode[_-]?[0-9]' | sort -V | tail -1)
-        if [ -n "$LATEST" ]; then
-          echo "Selected: $LATEST"
-          sudo xcode-select -s "/Applications/$LATEST/Contents/Developer"
+        # iOS SDK 26.2.9000 требует ТОЧНО Xcode 26.2 (не 26.3!)
+        # Ищем Xcode_26.2.app или Xcode_26.2.0.app
+        REQUIRED_XCODE="26.2"
+        MATCH=$(ls /Applications/ | grep -E "^Xcode_${REQUIRED_XCODE}" | sort -V | tail -1)
+
+        if [ -n "$MATCH" ]; then
+          echo "Selecting: $MATCH"
+          sudo xcode-select -s "/Applications/$MATCH/Contents/Developer"
         else
-          # Если папка называется просто Xcode.app
-          sudo xcode-select -s "/Applications/Xcode.app/Contents/Developer" 2>/dev/null || true
+          echo "ERROR: Xcode $REQUIRED_XCODE not found!"
+          ls /Applications/ | grep Xcode
+          exit 1
         fi
+
+        # Принимаем лицензию (обязательно после смены Xcode на CI)
+        sudo xcodebuild -license accept
 
         echo "=== Active Xcode ==="
         xcodebuild -version

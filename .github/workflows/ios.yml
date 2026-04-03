@@ -20,10 +20,12 @@ jobs:
     - name: ⬇️ Checkout
       uses: actions/checkout@v4
 
-    - name: 🔧 Install .NET 9 SDK
+    - name: 🔧 Install .NET 9 SDK (feature band 2xx = Xcode 16.x compatible)
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '9.0.x'
+        # 9.0.3xx устанавливает MAUI iOS SDK 26.x (требует Xcode 26 beta)
+        # 9.0.2xx устанавливает MAUI iOS SDK 18.x (работает с Xcode 16.x) ← нужно нам
+        dotnet-version: '9.0.2xx'
 
     - name: 🗑️ Remove .NET 10 SDK
       run: |

@@ -59,9 +59,11 @@ jobs:
         dotnet build FinanceManager/FinanceManager/FinanceManager.csproj \
           --framework net9.0-ios \
           --configuration Debug \
+          -p:RuntimeIdentifier=iossimulator-arm64 \
           -p:BuildIpa=false \
           -p:CodesignProvision="" \
           -p:CodesignKey="" \
+          --no-restore \
           --verbosity minimal
 
     - name: 📤 Upload artifact

@@ -185,19 +185,21 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        Fab.Register(OnFabTriggered);
+        Fab.OnFabClicked += HandleFabClicked;
         await LoadGoals();
     }
 
-    private Task OnFabTriggered()
+    private void HandleFabClicked()
     {
-        _editingId = null;
-        _form = new FormModel();
-        _formDeadline = null;
-        _formError = "";
-        _modalOpen = true;
-        StateHasChanged();   // ← ВАЖНО
-        return Task.CompletedTask;
+        _ = InvokeAsync(() =>
+        {
+            _editingId = null;
+            _form = new FormModel();
+            _formDeadline = null;
+            _formError = "";
+            _modalOpen = true;
+            StateHasChanged();
+        });
     }
 
     private async Task LoadGoals()
@@ -340,5 +342,5 @@ else
     private void CloseDepositModal() { _depositModalOpen = false; _depositError = ""; }
     private void CloseDepositOnOverlay() => CloseDepositModal();
 
-    public void Dispose() => Fab.Unregister();
+    public void Dispose() => Fab.OnFabClicked -= HandleFabClicked;
 }

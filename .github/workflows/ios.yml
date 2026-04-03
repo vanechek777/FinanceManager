@@ -33,36 +33,12 @@ jobs:
         sudo find /usr/local/share/dotnet/sdk -maxdepth 1 -mindepth 1 -type d 2>/dev/null | grep -v '/9\.' | sudo xargs -r rm -rf
         echo "Active SDK: $(dotnet --version)"
 
-    # На macOS runner Xcode 26.x установлен, но xcode-select может указывать на старый (16.x)
-    # Находим новейший и переключаемся
-    - name: 🏹0️‍♂️ Select latest Xcode
-      run: |
-        echo "=== Available Xcode versions ==="
-        ls /Applications/ | grep -i xcode || echo "None found"
-        
-        echo "=== Current xcode-select ==="
-        xcode-select -p || true
-        xcodebuild -version || true
-        
-        # iOS SDK 26.2.9000 требует ТОЧНО Xcode 26.2 (не 26.3!)
-        # Ищем Xcode_26.2.app или Xcode_26.2.0.app
-        REQUIRED_XCODE="26.2"
-        MATCH=$(ls /Applications/ | grep -E "^Xcode_${REQUIRED_XCODE}" | sort -V | tail -1)
-
-        if [ -n "$MATCH" ]; then
-          echo "Selecting: $MATCH"
-          sudo xcode-select -s "/Applications/$MATCH/Contents/Developer"
-        else
-          echo "ERROR: Xcode $REQUIRED_XCODE not found!"
-          ls /Applications/ | grep Xcode
-          exit 1
-        fi
-
-        # Принимаем лицензию (обязательно после смены Xcode на CI)
-        sudo xcodebuild -license accept
-
-        echo "=== Active Xcode ==="
-        xcodebuild -version
+    # maxim-lobanov/setup-xcode корректно выбирает Xcode и принимает лицензию
+    # Обходит проблему stub-пакетов (Xcode_26.2.0.app без macOS SDK)
+    - name: 🍎 Setup Xcode 26.2
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: '26.2'
 
     - name: 📦 Install MAUI workloads
       run: dotnet workload install maui-ios maui-android maui-maccatalyst --skip-sign-check

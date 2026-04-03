@@ -3,7 +3,7 @@ name: 🍎 Build iOS (Simulator)
 on:
   push:
     branches: [ main, master ]
-  workflow_dispatch:   # Кнопка ручного запуска на GitHub
+  workflow_dispatch:
 
 jobs:
   build-ios:
@@ -12,27 +12,32 @@ jobs:
 
     steps:
 
-    # 1. Скачиваем код
     - name: ⬇️ Checkout code
       uses: actions/checkout@v4
 
-    # 2. Устанавливаем .NET 9
+    # Явно указываем .NET 9 — иначе runner может взять .NET 10
     - name: 🔧 Setup .NET 9
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '9.0.x'
 
-    # 3. Устанавливаем MAUI iOS workload
+    # Проверяем какой SDK используется
+    - name: 🔍 Check .NET version
+      run: dotnet --version
+
+    # Устанавливаем ТОЛЬКО iOS workload для .NET 9
     - name: 📦 Install MAUI iOS workload
-      run: dotnet workload install maui-ios --skip-sign-check
-
-    # 4. Восстанавливаем пакеты
-    - name: 🔄 Restore NuGet packages
       run: |
-        dotnet restore FinanceManager/FinanceManager.Shared/FinanceManager.Shared.csproj
-        dotnet restore FinanceManager/FinanceManager/FinanceManager.csproj
+        dotnet workload install maui-ios --sdk-version 9.0.0 --skip-sign-check || \
+        dotnet workload install maui-ios --skip-sign-check
 
-    # 5. Собираем для симулятора (не требует сертификатов!)
+    # Восстанавливаем ТОЛЬКО iOS target (не Android, не Windows)
+    - name: 🔄 Restore packages (iOS only)
+      run: |
+        dotnet restore FinanceManager/FinanceManager/FinanceManager.csproj \
+          --framework net9.0-ios
+
+    # Собираем ТОЛЬКО iOS Simulator (x64)
     - name: 🏗️ Build iOS Simulator
       run: |
         dotnet build FinanceManager/FinanceManager/FinanceManager.csproj \
@@ -40,16 +45,14 @@ jobs:
           --configuration Debug \
           -p:RuntimeIdentifier=iossimulator-x64 \
           -p:BuildIpa=false \
-          -p:_DevicePlatform=iPhoneSimulator \
-          --no-restore
+          --no-restore \
+          --verbosity minimal
 
-    # 6. Публикуем артефакты (скаченный .app файл)
-    - name: 📤 Upload iOS app artifact
+    - name: 📤 Upload artifact
       uses: actions/upload-artifact@v4
       if: success()
       with:
         name: FinanceFlow-iOS-Simulator
-        path: |
-          FinanceManager/FinanceManager/bin/Debug/net9.0-ios/iossimulator-x64/**/*.app
+        path: FinanceManager/FinanceManager/bin/Debug/net9.0-ios/iossimulator-x64/**/*.app
         retention-days: 14
         if-no-files-found: warn

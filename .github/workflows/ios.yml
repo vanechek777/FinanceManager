@@ -6,13 +6,13 @@ on:
   workflow_dispatch:
 
 env:
-  DOTNET_MULTILEVEL_LOOKUP: 0      # Запрещает искать .NET в системных путях
+  DOTNET_MULTILEVEL_LOOKUP: 0   # Смотрим ТОЛЬКО в DOTNET_ROOT, игнорируем системные
   DOTNET_NOLOGO: 1
   DOTNET_CLI_TELEMETRY_OPTOUT: 1
 
 jobs:
   build-ios:
-    name: Build for iOS Simulator
+    name: Build iOS Simulator
     runs-on: macos-latest
 
     steps:
@@ -20,39 +20,50 @@ jobs:
     - name: ⬇️ Checkout
       uses: actions/checkout@v4
 
-    # Удаляем все системные .NET чтобы не было конфликта версий
-    - name: 🗑️ Remove system .NET SDK versions
-      run: |
-        # Оставляем только то что установит setup-dotnet
-        if [ -d /usr/local/share/dotnet ]; then
-          sudo rm -rf /usr/local/share/dotnet
-        fi
-
+    # Устанавливаем .NET 9 — это также устанавливает DOTNET_ROOT и добавляет в PATH
     - name: 🔧 Install .NET 9 SDK
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '9.0.x'
 
-    - name: 🔍 Verify .NET version (must be 9.x)
+    # Жёстко удаляем .NET 10 если присутствует (он может быть рядом с .NET 9)
+    - name: 🗑️ Remove .NET 10 SDK (keep only 9.x)
       run: |
-        dotnet --version
+        echo "=== SDKs before cleanup ==="
+        ls ~/.dotnet/sdk/ 2>/dev/null || true
+        ls /usr/local/share/dotnet/sdk/ 2>/dev/null || true
+
+        # Удаляем SDK 10.x из всех возможных мест
+        find ~/.dotnet/sdk -maxdepth 1 -mindepth 1 -type d | grep -v '/9\.' | xargs -r rm -rf
+        sudo find /usr/local/share/dotnet/sdk -maxdepth 1 -mindepth 1 -type d 2>/dev/null | grep -v '/9\.' | sudo xargs -r rm -rf
+
+        echo "=== SDKs after cleanup ==="
         dotnet --list-sdks
+        dotnet --version
 
-    - name: 📦 Install MAUI iOS workload
-      run: dotnet workload install maui-ios --skip-sign-check
+    # Устанавливаем ВСЕ MAUI workloads для .NET 9
+    # (нужны android+ios+maccatalyst т.к. csproj таргетирует все три)
+    - name: 📦 Install MAUI workloads
+      run: |
+        dotnet workload install maui-ios maui-android maui-maccatalyst --skip-sign-check
 
-    - name: 🔄 Restore (iOS target only)
+    # Restore с переопределением TargetFrameworks — ТОЛЬКО iOS
+    - name: 🔄 Restore (iOS only)
       run: |
         dotnet restore FinanceManager/FinanceManager/FinanceManager.csproj \
-          --framework net9.0-ios
+          -p:TargetFrameworks=net9.0-ios
 
+    # Build iOS Simulator — без подписи, без сертификатов
     - name: 🏗️ Build iOS Simulator
       run: |
         dotnet build FinanceManager/FinanceManager/FinanceManager.csproj \
+          -p:TargetFrameworks=net9.0-ios \
           --framework net9.0-ios \
           --configuration Debug \
           -p:RuntimeIdentifier=iossimulator-x64 \
           -p:BuildIpa=false \
+          -p:CodesignProvision="" \
+          -p:CodesignKey="" \
           --no-restore \
           --verbosity minimal
 

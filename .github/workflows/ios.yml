@@ -49,7 +49,14 @@ jobs:
     # RuntimeIdentifiers уже прописаны в .csproj для iOS-таргета.
     # ─────────────────────────────────────────────────────────────────────────
 
-    - name: 🔄 Restore (iOS framework only)
+    # 1. Сначала явно restore Shared как plain net9.0 (без iOS-контекста)
+    #    Это создаёт assets.json с таргетом net9.0 — нужно для --no-restore build
+    - name: 🔄 Restore Shared project
+      run: |
+        dotnet restore FinanceManager/FinanceManager.Shared/FinanceManager.Shared.csproj
+
+    # 2. Restore главного проекта — только iOS фреймворк
+    - name: 🔄 Restore main project (iOS only)
       run: |
         dotnet restore FinanceManager/FinanceManager/FinanceManager.csproj \
           -p:TargetFrameworks=net9.0-ios

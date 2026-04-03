@@ -33,6 +33,30 @@ jobs:
         sudo find /usr/local/share/dotnet/sdk -maxdepth 1 -mindepth 1 -type d 2>/dev/null | grep -v '/9\.' | sudo xargs -r rm -rf
         echo "Active SDK: $(dotnet --version)"
 
+    # На macOS runner Xcode 26.x установлен, но xcode-select может указывать на старый (16.x)
+    # Находим новейший и переключаемся
+    - name: 🏹0️‍♂️ Select latest Xcode
+      run: |
+        echo "=== Available Xcode versions ==="
+        ls /Applications/ | grep -i xcode || echo "None found"
+        
+        echo "=== Current xcode-select ==="
+        xcode-select -p || true
+        xcodebuild -version || true
+        
+        # Выбираем новейший Xcode
+        LATEST=$(ls /Applications/ | grep -E '^Xcode[_-]?[0-9]' | sort -V | tail -1)
+        if [ -n "$LATEST" ]; then
+          echo "Selected: $LATEST"
+          sudo xcode-select -s "/Applications/$LATEST/Contents/Developer"
+        else
+          # Если папка называется просто Xcode.app
+          sudo xcode-select -s "/Applications/Xcode.app/Contents/Developer" 2>/dev/null || true
+        fi
+
+        echo "=== Active Xcode ==="
+        xcodebuild -version
+
     - name: 📦 Install MAUI workloads
       run: dotnet workload install maui-ios maui-android maui-maccatalyst --skip-sign-check
 

@@ -48,18 +48,13 @@ jobs:
         dotnet workload install maui-ios maui-android maui-maccatalyst --skip-sign-check
 
     # Restore Shared project (его цель net9.0 — без платформенных RID)
-    - name: 🔄 Restore Shared project
+    - name: 🔄 Restore all projects
       run: |
         dotnet restore FinanceManager/FinanceManager.Shared/FinanceManager.Shared.csproj
-
-    # Restore главного проекта — ТОЛЬКО iOS
-    # RID указаны в .csproj (не передаются в Shared)
-    - name: 🔄 Restore main project (iOS only)
-      run: |
         dotnet restore FinanceManager/FinanceManager/FinanceManager.csproj \
           -p:TargetFrameworks=net9.0-ios
 
-    # Build iOS Simulator — без подписи, без сертификатов
+    # Build iOS Simulator (без --no-restore: если assets невалидны, build сам всё починит)
     - name: 🏗️ Build iOS Simulator
       run: |
         dotnet build FinanceManager/FinanceManager/FinanceManager.csproj \
@@ -70,7 +65,6 @@ jobs:
           -p:BuildIpa=false \
           -p:CodesignProvision="" \
           -p:CodesignKey="" \
-          --no-restore \
           --verbosity minimal
 
     - name: 📤 Upload artifact

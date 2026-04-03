@@ -1,0 +1,54 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Успешно — FinanceFlow</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{% static 'www/css/auth.css' %}" />
+</head>
+<body>
+  <div class="auth-bg">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+  </div>
+
+  <div class="auth-wrapper">
+    <div class="auth-card" style="text-align: center;">
+      <!-- Logo -->
+      <div class="auth-logo" style="justify-content: center;">
+        <div class="logo-icon">₽</div>
+        <span class="logo-text">FinanceFlow</span>
+      </div>
+
+      <div style="font-size: 64px; margin: 24px 0;">🎉</div>
+      <h1 class="auth-title">Регистрация успешна!</h1>
+      <p class="auth-subtitle" style="margin-top: 16px; margin-bottom: 32px; line-height: 1.5;">
+        Ваш аккаунт успешно создан.<br/>
+        Приложение сейчас должно открыться автоматически.
+      </p>
+
+      <a href="financeflow://login" class="auth-btn" style="text-decoration:none; display:inline-block;">
+        Вернуться в приложение
+      </a>
+      
+      <div class="auth-footer" style="margin-top: 24px;">
+        Если ничего не произошло, нажмите кнопку выше.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Automatically trigger app reopen if possible
+    window.onload = function() {
+      setTimeout(() => {
+        window.location.href = "financeflow://login";
+      }, 500);
+    }
+  </script>
+</body>
+</html>

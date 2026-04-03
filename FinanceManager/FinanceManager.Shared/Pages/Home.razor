@@ -158,7 +158,8 @@ else
 
     private Task OnFabTriggered()
     {
-        Nav.NavigateTo("/transactions");
+        // Передаём ?new=1 — Transactions.razor откроет модал после загрузки данных
+        Nav.NavigateTo("/transactions?new=1");
         return Task.CompletedTask;
     }
 

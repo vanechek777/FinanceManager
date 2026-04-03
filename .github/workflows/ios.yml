@@ -5,6 +5,11 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+env:
+  DOTNET_MULTILEVEL_LOOKUP: 0      # Запрещает искать .NET в системных путях
+  DOTNET_NOLOGO: 1
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+
 jobs:
   build-ios:
     name: Build for iOS Simulator
@@ -12,32 +17,35 @@ jobs:
 
     steps:
 
-    - name: ⬇️ Checkout code
+    - name: ⬇️ Checkout
       uses: actions/checkout@v4
 
-    # Явно указываем .NET 9 — иначе runner может взять .NET 10
-    - name: 🔧 Setup .NET 9
+    # Удаляем все системные .NET чтобы не было конфликта версий
+    - name: 🗑️ Remove system .NET SDK versions
+      run: |
+        # Оставляем только то что установит setup-dotnet
+        if [ -d /usr/local/share/dotnet ]; then
+          sudo rm -rf /usr/local/share/dotnet
+        fi
+
+    - name: 🔧 Install .NET 9 SDK
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '9.0.x'
 
-    # Проверяем какой SDK используется
-    - name: 🔍 Check .NET version
-      run: dotnet --version
-
-    # Устанавливаем ТОЛЬКО iOS workload для .NET 9
-    - name: 📦 Install MAUI iOS workload
+    - name: 🔍 Verify .NET version (must be 9.x)
       run: |
-        dotnet workload install maui-ios --sdk-version 9.0.0 --skip-sign-check || \
-        dotnet workload install maui-ios --skip-sign-check
+        dotnet --version
+        dotnet --list-sdks
 
-    # Восстанавливаем ТОЛЬКО iOS target (не Android, не Windows)
-    - name: 🔄 Restore packages (iOS only)
+    - name: 📦 Install MAUI iOS workload
+      run: dotnet workload install maui-ios --skip-sign-check
+
+    - name: 🔄 Restore (iOS target only)
       run: |
         dotnet restore FinanceManager/FinanceManager/FinanceManager.csproj \
           --framework net9.0-ios
 
-    # Собираем ТОЛЬКО iOS Simulator (x64)
     - name: 🏗️ Build iOS Simulator
       run: |
         dotnet build FinanceManager/FinanceManager/FinanceManager.csproj \

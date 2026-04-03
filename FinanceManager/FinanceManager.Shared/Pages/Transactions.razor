@@ -184,36 +184,27 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        Fab.Register(OnFabTriggered);
+        // Подписываемся на событие FAB — стандартный Blazor паттерн
+        Fab.OnFabClicked += HandleFabClicked;
         // если пришли с ?new=1 — запомним, откроем модал после загрузки
         if (OpenNew == "1") _pendingOpenModal = true;
         await LoadData();
     }
 
-    // После каждого рендера: если Data загружена и ждёт открытия модала — открываем
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    // Обработчик FAB-события.
+    // Вызывается синхронно из FabService.Trigger() → InvokeAsync гарантирует
+    // обновление в контексте ЭТОГО компонента, а не вызывающего.
+    private void HandleFabClicked()
     {
-        if (_pendingOpenModal && !_loading)
+        _ = InvokeAsync(() =>
         {
-            _pendingOpenModal = false;
-            OpenAddModal();
-            // убираем query-param из адресной строки без перезагрузки
-            Nav.NavigateTo("/transactions", replace: true);
-            await InvokeAsync(StateHasChanged);
-        }
-    }
-
-    // FAB нажат когда уже открыта страница Transactions
-    // ВАЖНО: вызов идёт из FabService (внешний контекст),
-    // поэтому нужен InvokeAsync — иначе StateHasChanged не сработает
-    private async Task OnFabTriggered()
-    {
-        _editingId = null;
-        _form = new FormModel();
-        _formDate = DateTime.Today;
-        _formError = "";
-        _modalOpen = true;
-        await InvokeAsync(StateHasChanged);
+            _editingId = null;
+            _form = new FormModel();
+            _formDate = DateTime.Today;
+            _formError = "";
+            _modalOpen = true;
+            StateHasChanged();
+        });
     }
 
     private async Task LoadData()
@@ -342,5 +333,6 @@ else
         return d.ToString("d MMMM", new System.Globalization.CultureInfo("ru-RU"));
     }
 
-    public void Dispose() => Fab.Unregister();
+    // Отписываемся от события при уничтожении компонента
+    public void Dispose() => Fab.OnFabClicked -= HandleFabClicked;
 }

@@ -152,15 +152,13 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        Fab.Register(OnFabTriggered);
+        Fab.OnFabClicked += HandleFabClicked;
         await LoadData();
     }
 
-    private Task OnFabTriggered()
+    private void HandleFabClicked()
     {
-        // Передаём ?new=1 — Transactions.razor откроет модал после загрузки данных
-        Nav.NavigateTo("/transactions?new=1");
-        return Task.CompletedTask;
+        _ = InvokeAsync(() => Nav.NavigateTo("/transactions?new=1"));
     }
 
     private async Task LoadData()
@@ -259,7 +257,7 @@ else
         return d.ToString("dd.MM");
     }
 
-    public void Dispose() => Fab.Unregister();
+    public void Dispose() => Fab.OnFabClicked -= HandleFabClicked;
 
     private class CategoryStat
     {

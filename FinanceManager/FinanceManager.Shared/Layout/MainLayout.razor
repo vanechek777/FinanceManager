@@ -57,7 +57,7 @@ else
         </nav>
 
         <!-- FAB -->
-        <button class="fab" @onclick="OnFabClickAsync">＋</button>
+        <button class="fab" @onclick="OnFabClick">＋</button>
     </div>
 
     <!-- Toast -->
@@ -118,7 +118,7 @@ else
 
     private void Navigate(string path) => Nav.NavigateTo(path);
 
-    private async Task OnFabClickAsync() => await Fab.TriggerAsync();
+    private void OnFabClick() => Fab.Trigger();
 
     private void Logout()
     {

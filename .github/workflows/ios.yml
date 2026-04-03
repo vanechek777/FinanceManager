@@ -39,11 +39,12 @@ jobs:
     - name: 📦 Install MAUI workloads
       run: dotnet workload install maui-ios maui-android maui-maccatalyst --skip-sign-check
 
-    # Restore Main сначала (записывает Shared assets в iOS-контексте)
-    - name: 🔄 Restore main project (iOS only)
+    # Restore Main с указанием RID устройства — создаёт assets для net9.0-ios/ios-arm64
+    - name: 🔄 Restore main project (iOS device)
       run: |
         dotnet restore FinanceManager/FinanceManager/FinanceManager.csproj \
-          -p:TargetFrameworks=net9.0-ios
+          -p:TargetFrameworks=net9.0-ios \
+          -p:RuntimeIdentifier=ios-arm64
 
     # Restore Shared ПОСЛЕДНИМ — восстанавливает plain net9.0 assets
     - name: 🔄 Restore Shared project (last)
